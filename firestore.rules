@@ -1,0 +1,141 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function myUser() {
+      return myUserDoc().data;
+    }
+
+    function isOperator() {
+      return signedIn() && (
+        (request.auth.token.email != null && (
+          request.auth.token.email == 'jmc.class2027@gmail.com' ||
+          request.auth.token.email == 'operator@jmc.internal'
+        )) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && myUser().role == 'operator')
+      );
+    }
+
+    // ----------------------------------------------------------
+    // Test Connection Path
+    // ----------------------------------------------------------
+    match /_connection_test/{docId} {
+      allow read, write: if true;
+    }
+
+    // ----------------------------------------------------------
+    // Users Collection
+    // ----------------------------------------------------------
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create, update: if signedIn();
+      allow delete: if isOperator();
+    }
+
+    // ----------------------------------------------------------
+    // Invites Collection (Email to Role mappings)
+    // ----------------------------------------------------------
+    match /invites/{email} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn();
+    }
+
+    // ----------------------------------------------------------
+    // Legacy top-level collections for backwards compatibility
+    // ----------------------------------------------------------
+    match /supervisors/{supervisorId} {
+      allow read, write: if signedIn();
+    }
+
+    match /teachers/{teacherId} {
+      allow read, write: if signedIn();
+    }
+
+    // ----------------------------------------------------------
+    // Schools & School Subcollections
+    // ----------------------------------------------------------
+    match /schools/{schoolId} {
+      allow read: if true;
+      allow create, update, delete: if signedIn();
+
+      // Classes
+      match /classes/{classId} {
+        allow read, write: if signedIn();
+
+        match /students/{studentId} {
+          allow read, write: if signedIn();
+        }
+      }
+
+      // Teachers roster
+      match /teachers/{teacherId} {
+        allow read, write: if signedIn();
+      }
+
+      // Students roster
+      match /students/{studentId} {
+        allow read, write: if signedIn();
+      }
+
+      // Parents roster
+      match /parents/{parentId} {
+        allow read, write: if signedIn();
+      }
+
+      // Subjects
+      match /subjects/{subjectId} {
+        allow read, write: if signedIn();
+      }
+
+      // Assignments
+      match /assignments/{assignmentId} {
+        allow read, write: if signedIn();
+      }
+
+      // Submissions
+      match /submissions/{submissionId} {
+        allow read, write: if signedIn();
+      }
+
+      // Attendance
+      match /attendance/{attendanceId} {
+        allow read, write: if signedIn();
+      }
+
+      // Results / Assessment Marks
+      match /results/{resultId} {
+        allow read, write: if signedIn();
+      }
+
+      // Timetables
+      match /timetables/{timetableId} {
+        allow read, write: if signedIn();
+      }
+
+      // Announcements
+      match /announcements/{announcementId} {
+        allow read, write: if signedIn();
+      }
+
+      // Direct & Class Messages
+      match /messages/{messageId} {
+        allow read, write: if signedIn();
+      }
+
+      // Audit Logs
+      match /auditLogs/{logId} {
+        allow read, create: if signedIn();
+        allow update, delete: if false; // Immutable audit logs
+      }
+    }
+  }
+}

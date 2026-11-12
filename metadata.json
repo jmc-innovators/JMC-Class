@@ -1,0 +1,6 @@
+{
+  "name": "JMC Classroom — School Management & Learning Platform",
+  "description": "Production-ready school management and online learning platform for Grade 6–11 with real Firestore data, role-based portals, assignments, attendance, marks, timetables, and messaging.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,216 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account document stored at /users/{uid}",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["operator", "school", "supervisor", "teacher", "student", "parent"] },
+        "schoolId": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "School": {
+      "title": "School",
+      "description": "School institution document stored at /schools/{schoolId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "principalName": { "type": "string" },
+        "schoolType": { "type": "string" },
+        "address": { "type": "string" },
+        "district": { "type": "string" },
+        "province": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "website": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "adminEmail"]
+    },
+    "Classroom": {
+      "title": "Classroom",
+      "description": "Class grade and section stored at /schools/{schoolId}/classes/{classId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "name": { "type": "string" },
+        "grade": { "type": "string" },
+        "div": { "type": "string" },
+        "code": { "type": "string" },
+        "teachers": { "type": "array" },
+        "subjects": { "type": "object" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "schoolId", "name", "code"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Homework, project or coursework stored at /schools/{schoolId}/assignments/{assignmentId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "classId": { "type": "string" },
+        "subject": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "teacherName": { "type": "string" },
+        "title": { "type": "string" },
+        "instructions": { "type": "string" },
+        "maxMarks": { "type": "number" },
+        "dueDate": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "schoolId", "classId", "title", "subject"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "Student work submission stored at /schools/{schoolId}/submissions/{submissionId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "assignmentId": { "type": "string" },
+        "classId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "content": { "type": "string" },
+        "status": { "type": "string", "enum": ["submitted", "graded", "draft"] },
+        "marks": { "type": "number" },
+        "feedback": { "type": "string" },
+        "submittedAt": { "type": "string" }
+      },
+      "required": ["id", "schoolId", "assignmentId", "studentId"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Daily class attendance session stored at /schools/{schoolId}/attendance/{attendanceId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "classId": { "type": "string" },
+        "subject": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "date": { "type": "string" },
+        "records": { "type": "object" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "schoolId", "classId", "date"]
+    },
+    "Result": {
+      "title": "Result",
+      "description": "Assessment marks stored at /schools/{schoolId}/results/{resultId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "classId": { "type": "string" },
+        "subject": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "examName": { "type": "string" },
+        "maxMarks": { "type": "number" },
+        "records": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "schoolId", "classId", "examName"]
+    },
+    "Timetable": {
+      "title": "Timetable",
+      "description": "Weekly class timetable stored at /schools/{schoolId}/timetables/{timetableId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "classId": { "type": "string" },
+        "day": { "type": "string" },
+        "periods": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "schoolId", "classId", "day"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "School or class announcement stored at /schools/{schoolId}/announcements/{announcementId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorName": { "type": "string" },
+        "targetType": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "schoolId", "title", "content"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Security and administrative audit record stored at /schools/{schoolId}/auditLogs/{logId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "actorUid": { "type": "string" },
+        "action": { "type": "string" },
+        "targetType": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "schoolId", "actorUid", "action"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profiles and RBAC role assignments"
+    },
+    "/schools/{schoolId}": {
+      "schema": "School",
+      "description": "Registered schools on JMC Classroom"
+    },
+    "/schools/{schoolId}/classes/{classId}": {
+      "schema": "Classroom",
+      "description": "Classes and student cohorts in each school"
+    },
+    "/schools/{schoolId}/assignments/{assignmentId}": {
+      "schema": "Assignment",
+      "description": "Homework and coursework assignments"
+    },
+    "/schools/{schoolId}/submissions/{submissionId}": {
+      "schema": "Submission",
+      "description": "Student assignment submissions and grades"
+    },
+    "/schools/{schoolId}/attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Daily attendance logs per class and subject"
+    },
+    "/schools/{schoolId}/results/{resultId}": {
+      "schema": "Result",
+      "description": "Exam and assessment marks"
+    },
+    "/schools/{schoolId}/timetables/{timetableId}": {
+      "schema": "Timetable",
+      "description": "Weekly period schedules per class"
+    },
+    "/schools/{schoolId}/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "School, teacher, student, and parent announcements"
+    },
+    "/schools/{schoolId}/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Immutable security logs of administrative actions"
+    }
+  }
+}
