@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   School,
   X,
@@ -7,14 +7,13 @@ import {
   Copy,
   Check,
   Building,
-  Mail,
   User,
-  Phone,
   MapPin,
-  Globe,
-  FileText,
   Loader2,
   Sparkles,
+  Upload,
+  FileText,
+  Trash2,
 } from 'lucide-react';
 import { SchoolApplication } from '../types';
 import { submitSchoolApplication } from '../lib/firestoreService';
@@ -46,6 +45,8 @@ const SCHOOL_TYPES = [
   'Autonomous Educational Institution',
 ];
 
+const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024; // 2 MB
+
 export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = ({
   isOpen,
   onClose,
@@ -65,12 +66,49 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
     additionalInfo: '',
   });
 
+  const [documentFile, setDocumentFile] = useState<{
+    fileName: string;
+    mimeType: string;
+    size: number;
+    base64Data: string;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submittedApp, setSubmittedApp] = useState<SchoolApplication | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string>('');
   const [copiedId, setCopiedId] = useState(false);
 
   if (!isOpen) return null;
+
+  const resetForm = () => {
+    setFormData({
+      schoolName: '',
+      principalName: '',
+      administratorName: '',
+      administratorEmail: '',
+      contactNumber: '',
+      province: 'Northern Province',
+      district: 'Jaffna',
+      address: '',
+      schoolType: 'National School (Type 1AB)',
+      website: '',
+      additionalInfo: '',
+    });
+    setDocumentFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setError(null);
+    setSubmittedApp(null);
+    setSuccessMessage('');
+  };
+
+  const handleClose = () => {
+    if (submittedApp) {
+      resetForm();
+    }
+    onClose();
+  };
 
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const prov = e.target.value;
@@ -80,6 +118,37 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
       province: prov,
       district: districts[0] || '',
     }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    const file = e.target.files?.[0];
+    if (!file) {
+      setDocumentFile(null);
+      return;
+    }
+
+    if (file.size > MAX_DOCUMENT_BYTES) {
+      setError('Supporting document must be 2 MB or smaller.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const resultStr = String(reader.result || '');
+      const base64Part = resultStr.includes(',') ? resultStr.split(',')[1] : resultStr;
+      setDocumentFile({
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        size: file.size,
+        base64Data: base64Part,
+      });
+    };
+    reader.onerror = () => {
+      setError('Could not read the selected file. Please try another document.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleCopyId = () => {
@@ -92,20 +161,18 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
 
   const validate = (): string | null => {
     if (!formData.schoolName.trim()) return 'School Name is required.';
-    if (!formData.principalName.trim()) return 'Principal Name is required.';
-    if (!formData.administratorName.trim()) return 'Administrator Name is required.';
-    
+    if (!formData.administratorName.trim()) return 'Contact Person / Administrator Name is required.';
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.administratorEmail.trim() || !emailRegex.test(formData.administratorEmail.trim())) {
-      return 'Please enter a valid Administrator Google Email address.';
+      return 'Please enter a valid Official School Email address.';
     }
 
     const digitsOnly = formData.contactNumber.replace(/[^0-9]/g, '');
     if (digitsOnly.length < 7) {
-      return 'Please provide a valid official contact number with at least 7 digits.';
+      return 'Please provide a valid Phone Number with at least 7 digits.';
     }
 
-    if (!formData.province.trim()) return 'Province is required.';
     if (!formData.district.trim()) return 'District is required.';
     if (!formData.address.trim()) return 'School Address is required.';
     if (!formData.schoolType.trim()) return 'School Type is required.';
@@ -126,9 +193,9 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
     setLoading(true);
 
     try {
-      const app = await submitSchoolApplication({
+      const { application, message } = await submitSchoolApplication({
         schoolName: formData.schoolName.trim(),
-        principalName: formData.principalName.trim(),
+        principalName: (formData.principalName || formData.administratorName).trim(),
         administratorName: formData.administratorName.trim(),
         administratorEmail: formData.administratorEmail.trim().toLowerCase(),
         contactNumber: formData.contactNumber.trim(),
@@ -138,11 +205,13 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
         schoolType: formData.schoolType.trim(),
         website: formData.website.trim(),
         additionalInfo: formData.additionalInfo.trim(),
+        ...(documentFile ? { documentFile } : {}),
       });
 
-      setSubmittedApp(app);
+      setSubmittedApp(application);
+      setSuccessMessage(message);
       if (onSuccess) {
-        onSuccess(app);
+        onSuccess(application);
       }
     } catch (err: any) {
       console.error('Registration submission error:', err);
@@ -168,12 +237,13 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                 Register Your School
               </h2>
               <p className="text-xs text-slate-400">
-                Official institution onboarding &amp; operator verification application
+                Official institution onboarding &amp; Google Workspace verification application
               </p>
             </div>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleClose}
             className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
@@ -189,30 +259,32 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                 <CheckCircle2 className="w-9 h-9" />
               </div>
 
-              <div>
-                <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-2">
-                  Status: PENDING Operator Approval
+              <div className="space-y-2">
+                <span className="inline-block px-3 py-1 rounded text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Status: {submittedApp.status}
                 </span>
                 <h3 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans']">
-                  Application Submitted Successfully!
+                  Registration Submitted
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto mt-1 leading-relaxed">
-                  Your school application for <b className="text-white">{submittedApp.schoolName}</b> has been received and logged to Google Sheets and Cloud Firestore.
+                <p className="text-xs sm:text-sm text-emerald-200 max-w-lg mx-auto leading-relaxed font-medium">
+                  {successMessage ||
+                    'Your school registration has been submitted successfully. Our administration team will review your application.'}
                 </p>
               </div>
 
               {/* Application Details Card */}
               <div className="p-4 rounded-xl bg-[#161c2d] border border-white/10 text-left max-w-md mx-auto space-y-2.5 text-xs">
                 <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                  <span className="text-slate-400 font-medium">Application ID</span>
+                  <span className="text-slate-400 font-medium">Registration ID</span>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-bold text-blue-400 text-sm bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
                       {submittedApp.id}
                     </span>
                     <button
+                      type="button"
                       onClick={handleCopyId}
                       className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                      title="Copy ID"
+                      title="Copy Registration ID"
                     >
                       {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
@@ -225,14 +297,30 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Administrator Email</span>
+                  <span className="text-slate-400">Official School Email</span>
                   <span className="font-semibold text-indigo-300">{submittedApp.administratorEmail}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">District / Province</span>
-                  <span className="font-semibold text-slate-200">{submittedApp.district}, {submittedApp.province}</span>
+                  <span className="text-slate-400">Contact Person</span>
+                  <span className="font-semibold text-slate-200">{submittedApp.administratorName}</span>
                 </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">District / Province</span>
+                  <span className="font-semibold text-slate-200">
+                    {submittedApp.district}, {submittedApp.province}
+                  </span>
+                </div>
+
+                {submittedApp.documentName && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Attached Document</span>
+                    <span className="font-semibold text-emerald-300 truncate max-w-[200px]">
+                      {submittedApp.documentName}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* What Happens Next Notice */}
@@ -240,23 +328,32 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                 <div className="font-bold text-blue-300 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-blue-400" /> What Happens Next?
                 </div>
+                <p>1. Your registration is queued for verification by the JMC Classroom Operator.</p>
                 <p>
-                  1. A JMC Classroom Platform Operator will verify your institution details.
+                  2. Upon approval, an automated confirmation email will be sent to{' '}
+                  <b>{submittedApp.administratorEmail}</b> from our administration account.
                 </p>
                 <p>
-                  2. Upon review, an automatic approval email will be sent to <b>{submittedApp.administratorEmail}</b> with your permanent School ID.
-                </p>
-                <p>
-                  3. You can then sign in directly using Google to manage Grade 6–11 classes, teachers, and students.
+                  3. You can then sign in directly with Google to manage Grade 6–11 classes, teachers, and students.
                 </p>
               </div>
 
-              <button
-                onClick={onClose}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition-all"
-              >
-                Close &amp; Return to Home
-              </button>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs border border-white/10 transition-colors"
+                >
+                  Submit Another School
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition-all"
+                >
+                  Close &amp; Return to Home
+                </button>
+              </div>
             </div>
           ) : (
             /* Registration Form */
@@ -276,7 +373,7 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
 
                 <div>
                   <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    1. School Name <span className="text-rose-400">*</span>
+                    School Name <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="text"
@@ -291,21 +388,7 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      2. Principal Name <span className="text-rose-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.principalName}
-                      onChange={(e) => setFormData({ ...formData, principalName: e.target.value })}
-                      placeholder="e.g. Mr. K. Pushparathanam"
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      9. School Type <span className="text-rose-400">*</span>
+                      School Type <span className="text-rose-400">*</span>
                     </label>
                     <select
                       value={formData.schoolType}
@@ -319,19 +402,32 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                       ))}
                     </select>
                   </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300 block mb-1">
+                      Principal Name <span className="text-slate-500">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.principalName}
+                      onChange={(e) => setFormData({ ...formData, principalName: e.target.value })}
+                      placeholder="e.g. Mr. K. Pushparathanam"
+                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Section 2: Administrator & Contact */}
+              {/* Section 2: Contact Person & Email */}
               <div className="space-y-3 pt-2 border-t border-white/10">
                 <div className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5" /> Administrator Credentials &amp; Contact
+                  <User className="w-3.5 h-3.5" /> Official School Contact &amp; Email
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      3. Administrator Name <span className="text-rose-400">*</span>
+                      Contact Person <span className="text-rose-400">*</span>
                     </label>
                     <input
                       type="text"
@@ -345,7 +441,7 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
 
                   <div>
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      5. Contact Number <span className="text-rose-400">*</span>
+                      Phone Number <span className="text-rose-400">*</span>
                     </label>
                     <input
                       type="tel"
@@ -360,32 +456,32 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
 
                 <div>
                   <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    4. Administrator Google Email <span className="text-rose-400">*</span>
+                    Official School Email <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="email"
                     required
                     value={formData.administratorEmail}
                     onChange={(e) => setFormData({ ...formData, administratorEmail: e.target.value })}
-                    placeholder="e.g. principal@mahajana.lk or admin.school@gmail.com"
+                    placeholder="e.g. principal@mahajana.lk or school.admin@gmail.com"
                     className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                   />
                   <span className="text-[11px] text-slate-400 mt-0.5 block">
-                    Must be the Google account you will use to log into the School Administrator Portal.
+                    Approval updates and School Admin portal access are provisioned for this Google email.
                   </span>
                 </div>
               </div>
 
-              {/* Section 3: Geographical Location */}
+              {/* Section 3: Location */}
               <div className="space-y-3 pt-2 border-t border-white/10">
                 <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5" /> Geographical Location &amp; Address
+                  <MapPin className="w-3.5 h-3.5" /> Location &amp; Address
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      6. Province <span className="text-rose-400">*</span>
+                      Province <span className="text-rose-400">*</span>
                     </label>
                     <select
                       value={formData.province}
@@ -402,7 +498,7 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
 
                   <div>
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      7. District <span className="text-rose-400">*</span>
+                      District <span className="text-rose-400">*</span>
                     </label>
                     <select
                       value={formData.district}
@@ -420,7 +516,7 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
 
                 <div>
                   <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    8. School Physical Address <span className="text-rose-400">*</span>
+                    Address <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="text"
@@ -433,12 +529,25 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                 </div>
               </div>
 
-              {/* Section 4: Optional Web & Notes */}
+              {/* Section 4: Additional Info & Optional Google Drive Document */}
               <div className="space-y-3 pt-2 border-t border-white/10">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      10. School Website <span className="text-slate-500">(optional)</span>
+                      Additional Information <span className="text-slate-500">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.additionalInfo}
+                      onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
+                      placeholder="e.g. Grade 6–11 student count: 450"
+                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300 block mb-1">
+                      School Website <span className="text-slate-500">(optional)</span>
                     </label>
                     <input
                       type="url"
@@ -448,19 +557,50 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                       className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      11. Additional Information <span className="text-slate-500">(optional)</span>
+                {/* Optional Document Upload */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-1">
+                    Supporting Document (Verification Letter / MOE Registration){' '}
+                    <span className="text-slate-500">(optional, max 2 MB)</span>
+                  </label>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <label className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-[#171d2d] border border-dashed border-white/20 hover:border-blue-500/60 cursor-pointer text-xs text-slate-300 transition-colors">
+                      <Upload className="w-4 h-4 text-blue-400 shrink-0" />
+                      <span className="truncate">
+                        {documentFile
+                          ? `${documentFile.fileName} (${Math.round(documentFile.size / 1024)} KB)`
+                          : 'Attach PDF, PNG, JPG, or DOCX for Google Drive archiving'}
+                      </span>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
                     </label>
-                    <input
-                      type="text"
-                      value={formData.additionalInfo}
-                      onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
-                      placeholder="e.g. Expected Grade 6–11 student count: 450"
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
-                    />
+                    {documentFile && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDocumentFile(null);
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }}
+                        className="px-3 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    )}
                   </div>
+                  {documentFile && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-400">
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Ready to archive in Google Drive &quot;School Registrations&quot; folder.</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -473,7 +613,7 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     disabled={loading}
                     className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 transition-colors"
                   >

@@ -17,11 +17,11 @@ export interface UserProfile {
 export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface SchoolApplication {
-  id: string; // e.g. APP-2026-XXXXX
+  id: string; // e.g. REG-2026-XXXXX or APP-2026-XXXXX
   schoolName: string;
   principalName: string;
-  administratorName: string;
-  administratorEmail: string;
+  administratorName: string; // Contact Person / Administrator Name
+  administratorEmail: string; // Official School Email
   contactNumber: string;
   province: string;
   district: string;
@@ -29,13 +29,62 @@ export interface SchoolApplication {
   schoolType: string;
   website?: string;
   additionalInfo?: string;
+  documentName?: string;
+  documentMimeType?: string;
+  documentSize?: number;
+  driveFileId?: string;
+  driveFileUrl?: string;
+  hasPendingDocumentUpload?: boolean;
   submissionDate: string; // ISO date string
   status: ApplicationStatus;
   operatorRemarks?: string;
   approvalDate?: string;
+  approvedBy?: string;
+  approvedByEmail?: string;
   schoolId?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface GoogleWorkspaceSubfolders {
+  schoolRegistrations: string;
+  approvedSchools: string;
+  rejectedApplications: string;
+  systemReports: string;
+  backups: string;
+}
+
+export interface GoogleWorkspaceConfig {
+  configured: boolean;
+  primaryAccountEmail: string;
+  connectedGoogleEmail?: string;
+  sendingFromEmail?: string;
+  aliasMode?: 'direct_account' | 'verified_send_as_alias' | 'reply_to_fallback';
+  rootFolderId?: string;
+  rootFolderUrl?: string;
+  subfolders?: GoogleWorkspaceSubfolders;
+  spreadsheetId?: string;
+  spreadsheetUrl?: string;
+  lastSyncedAt?: string;
+  lastReportUrl?: string;
+  lastBackupUrl?: string;
+  updatedAt?: string;
+}
+
+export interface WorkspaceVerificationResult {
+  connectedEmail: string;
+  targetAccountEmail: string;
+  canAuthorizeDriveAndSheets: boolean;
+  canSendEmail: boolean;
+  aliasMode: 'direct_account' | 'verified_send_as_alias' | 'reply_to_fallback';
+  recommendedSendAsEmail: string;
+  availableSendAsAliases: Array<{
+    sendAsEmail: string;
+    displayName?: string;
+    isPrimary?: boolean;
+    verificationStatus?: string;
+  }>;
+  message: string;
 }
 
 export interface School {

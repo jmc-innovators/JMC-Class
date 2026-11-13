@@ -90,6 +90,13 @@ service cloud.firestore {
     }
 
     // ----------------------------------------------------------
+    // Google Workspace Automation Config (Non-secret IDs, Operator Only)
+    // ----------------------------------------------------------
+    match /system_config/{configId} {
+      allow read, write: if isOperator();
+    }
+
+    // ----------------------------------------------------------
     // School Registration Applications
     // ----------------------------------------------------------
     match /school_applications/{applicationId} {

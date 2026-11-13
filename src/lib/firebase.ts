@@ -24,13 +24,46 @@ import { UserProfile, UserRole } from '../types';
 
 export { firebaseConfig };
 
+const resolvedDatabaseId =
+  (firebaseConfig as { firestoreDatabaseId?: string }).firestoreDatabaseId ||
+  'ai-studio-jmcclass-20742766-c8cd-4030-95f3-22ca7c7d152d';
+
 // Initialize Firebase App as Singleton using provisioned project config
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = getFirestore(app, resolvedDatabaseId);
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+export const WORKSPACE_SCOPES = [
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.readonly',
+] as const;
+
+export const workspaceGoogleProvider = new GoogleAuthProvider();
+WORKSPACE_SCOPES.forEach((scope) => workspaceGoogleProvider.addScope(scope));
+workspaceGoogleProvider.setCustomParameters({ prompt: 'consent select_account' });
+
+// Strict in-memory cache for Google Workspace OAuth access token (never localStorage/sessionStorage)
+let cachedWorkspaceAccessToken: string | null = null;
+let isWorkspaceAuthInProgress = false;
+
+onAuthStateChanged(auth, (user) => {
+  if (!user && !isWorkspaceAuthInProgress) {
+    cachedWorkspaceAccessToken = null;
+  }
+});
+
+export function getWorkspaceAccessToken(): string | null {
+  return cachedWorkspaceAccessToken;
+}
+
+export function clearWorkspaceAccessToken(): void {
+  cachedWorkspaceAccessToken = null;
+}
 
 export enum OperationType {
   CREATE = 'create',
@@ -112,7 +145,7 @@ export async function checkDatabaseConnection(): Promise<{
       connected: true,
       latencyMs: Math.max(latencyMs, 25),
       projectId: firebaseConfig.projectId,
-      databaseId: firebaseConfig.firestoreDatabaseId,
+      databaseId: resolvedDatabaseId,
     };
   } catch (err: any) {
     const isOffline = err?.message?.includes('the client is offline');
@@ -121,7 +154,7 @@ export async function checkDatabaseConnection(): Promise<{
       connected: !isOffline,
       latencyMs,
       projectId: firebaseConfig.projectId,
-      databaseId: firebaseConfig.firestoreDatabaseId,
+      databaseId: resolvedDatabaseId,
       error: isOffline ? err?.message : undefined,
     };
   }
@@ -437,6 +470,34 @@ export async function signInAsRole(role: UserRole): Promise<{ user: FirebaseUser
   return signInWithEmail(email, pass, role);
 }
 
+export async function connectGoogleWorkspace(): Promise<{
+  user: FirebaseUser;
+  accessToken: string;
+}> {
+  try {
+    isWorkspaceAuthInProgress = true;
+    const result = await signInWithPopup(auth, workspaceGoogleProvider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (!credential?.accessToken) {
+      throw new Error('Google Workspace access token was not granted. Please ensure Drive, Sheets, and Gmail permissions are accepted.');
+    }
+    cachedWorkspaceAccessToken = credential.accessToken;
+    return { user: result.user, accessToken: credential.accessToken };
+  } catch (err: any) {
+    if (err?.code === 'auth/unauthorized-domain') {
+      const host = typeof window !== 'undefined' ? window.location.hostname : '';
+      throw new Error(`UNAUTHORIZED_DOMAIN:${host}`);
+    }
+    if (err?.code === 'auth/popup-closed-by-user') {
+      throw new Error('Google Workspace authorization popup was closed before completion.');
+    }
+    throw err;
+  } finally {
+    isWorkspaceAuthInProgress = false;
+  }
+}
+
 export async function logOut(): Promise<void> {
+  cachedWorkspaceAccessToken = null;
   await signOut(auth);
 }

@@ -191,10 +191,35 @@
         "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
         "operatorRemarks": { "type": "string" },
         "approvalDate": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "approvedByEmail": { "type": "string" },
         "schoolId": { "type": "string" },
+        "documentName": { "type": "string" },
+        "documentMimeType": { "type": "string" },
+        "driveFileId": { "type": "string" },
+        "driveFileUrl": { "type": "string" },
         "createdAt": { "type": "string" }
       },
-      "required": ["id", "schoolName", "principalName", "administratorName", "administratorEmail", "contactNumber", "province", "district", "address", "schoolType", "status"]
+      "required": ["id", "schoolName", "administratorName", "administratorEmail", "contactNumber", "district", "address", "schoolType", "status"]
+    },
+    "GoogleWorkspaceConfig": {
+      "title": "GoogleWorkspaceConfig",
+      "description": "Non-secret Google Drive and Sheets automation resource identifiers stored at /system_config/{configId}",
+      "type": "object",
+      "properties": {
+        "configured": { "type": "string" },
+        "primaryAccountEmail": { "type": "string" },
+        "connectedGoogleEmail": { "type": "string" },
+        "sendingFromEmail": { "type": "string" },
+        "aliasMode": { "type": "string" },
+        "rootFolderId": { "type": "string" },
+        "rootFolderUrl": { "type": "string" },
+        "spreadsheetId": { "type": "string" },
+        "spreadsheetUrl": { "type": "string" },
+        "lastSyncedAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["primaryAccountEmail"]
     }
   },
   "firestore": {
@@ -241,6 +266,10 @@
     "/school_applications/{applicationId}": {
       "schema": "SchoolApplication",
       "description": "School registration applications submitted by visitors"
+    },
+    "/system_config/{configId}": {
+      "schema": "GoogleWorkspaceConfig",
+      "description": "Google Workspace Drive folder and Spreadsheet automation configuration"
     }
   }
 }

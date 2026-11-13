@@ -1161,8 +1161,15 @@ export async function sendMessage(
 // SCHOOL REGISTRATION APPLICATIONS & OPERATOR APPROVALS
 // -------------------------------------------------------------
 export async function submitSchoolApplication(
-  data: Omit<SchoolApplication, 'id' | 'submissionDate' | 'status' | 'createdAt'>
-): Promise<SchoolApplication> {
+  data: Omit<SchoolApplication, 'id' | 'submissionDate' | 'status' | 'createdAt'> & {
+    documentFile?: {
+      fileName: string;
+      mimeType: string;
+      size: number;
+      base64Data: string;
+    };
+  }
+): Promise<{ application: SchoolApplication; message: string }> {
   const res = await fetch('/api/school-applications', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1177,14 +1184,19 @@ export async function submitSchoolApplication(
   const result = await res.json();
   const application: SchoolApplication = result.application;
 
-  // Also persist directly to Cloud Firestore school_applications collection
+  // Also persist sanitized application metadata (never raw base64) to Cloud Firestore
   try {
     await setDoc(doc(db, 'school_applications', application.id), cleanFirestoreData(application));
   } catch (err) {
     console.warn('Firestore direct write notice (application saved via backend):', err);
   }
 
-  return application;
+  return {
+    application,
+    message:
+      result.message ||
+      'Your school registration has been submitted successfully. Our administration team will review your application.',
+  };
 }
 
 export async function fetchSchoolApplications(actorEmail?: string): Promise<SchoolApplication[]> {

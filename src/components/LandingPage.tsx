@@ -139,7 +139,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               onClick={() => setShowRegisterModal(true)}
               className="text-xs sm:text-sm font-semibold px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/25 transition-all"
             >
-              Register School
+              Register Your School
             </button>
           </div>
         </div>
