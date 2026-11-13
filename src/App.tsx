@@ -27,12 +27,14 @@ import {
 import * as firestoreService from './lib/firestoreService';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
+import { SchoolPublicPage } from './components/SchoolPublicPage';
 import { OperatorDashboard } from './components/OperatorDashboard';
 import { SchoolAdminDashboard } from './components/SchoolAdminDashboard';
 import { TeacherDashboard } from './components/TeacherDashboard';
 import { StudentDashboard } from './components/StudentDashboard';
 import { ParentDashboard } from './components/ParentDashboard';
 import { GeminiChatWidget } from './components/GeminiChatWidget';
+import { applyDefaultSeo, applySchoolSeo } from './lib/seoManager';
 
 export default function App() {
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
@@ -42,6 +44,10 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const manualAuthInProgressRef = useRef(false);
+  const [pathname, setPathname] = useState<string>(() =>
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  );
+  const [publicSchoolsLoading, setPublicSchoolsLoading] = useState(true);
 
   // Firestore Data State
   const [schools, setSchools] = useState<School[]>([]);
@@ -122,13 +128,53 @@ export default function App() {
     }
   }, [currentSchool, loadSchoolData, userProfile?.schoolId]);
 
-  const initializeSessionData = useCallback(async (profile: UserProfile) => {
+  const navigateTo = useCallback((nextPath: string) => {
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname !== nextPath) {
+        window.history.pushState({}, '', nextPath);
+      }
+      setPathname(nextPath);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      setPathname(nextPath);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPopState = () => setPathname(window.location.pathname || '/');
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Load public school directory on mount so LandingPage and /schools/:id pages resolve cleanly
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const list = await firestoreService.fetchSchools();
+        if (active && list) {
+          setSchools(list);
+        }
+      } catch (err) {
+        console.warn('Public schools fetch notice:', err);
+      } finally {
+        if (active) setPublicSchoolsLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const initializeSessionData = useCallback(async (profile: UserProfile, preferredSchoolId?: string) => {
     setUserProfile(profile);
     const allSchools = await firestoreService.fetchSchools().catch(() => []);
     setSchools(allSchools || []);
 
-    if (profile.schoolId) {
-      const found = allSchools.find((s) => s.id === profile.schoolId);
+    const targetId = preferredSchoolId || profile.schoolId;
+    if (targetId) {
+      const found = allSchools.find((s) => s.id === targetId);
       if (found) {
         setCurrentSchool(found);
         await loadSchoolData(found.id);
@@ -178,13 +224,13 @@ export default function App() {
   }, [initializeSessionData]);
 
   // Handlers
-  const handleGoogleSignIn = async (preferredRole?: UserRole) => {
+  const handleGoogleSignIn = async (preferredRole?: UserRole, targetSchoolId?: string) => {
     setActionLoading(true);
     setErrorMessage(null);
     manualAuthInProgressRef.current = true;
     try {
       const { profile } = await signInWithGoogle(preferredRole);
-      await initializeSessionData(profile);
+      await initializeSessionData(profile, targetSchoolId);
     } catch (err: any) {
       console.error('Sign-in error:', err);
       setErrorMessage(err.message || 'Could not complete Google Sign-in.');
@@ -194,13 +240,13 @@ export default function App() {
     }
   };
 
-  const handleSignInWithRole = async (role: UserRole) => {
+  const handleSignInWithRole = async (role: UserRole, targetSchoolId?: string) => {
     setActionLoading(true);
     setErrorMessage(null);
     manualAuthInProgressRef.current = true;
     try {
       const { profile } = await signInAsRole(role);
-      await initializeSessionData(profile);
+      await initializeSessionData(profile, targetSchoolId);
     } catch (err: any) {
       console.error('Role sign-in error:', err);
       const errMsg = err?.message || '';
@@ -237,13 +283,14 @@ export default function App() {
         displayName: displayNameByRole[role] || 'User',
         email: emailByRole[role] || `${role}@jmc.school`,
         role,
-        ...(role === 'operator' ? {} : { schoolId: allSchools[0]?.id || 'id_mtz4zcm9_xs77h8e' }),
+        ...(role === 'operator' ? {} : { schoolId: targetSchoolId || allSchools[0]?.id || 'id_mtz4zcm9_xs77h8e' }),
         status: 'active',
       };
       setUserProfile(fallbackProfile);
       if (allSchools.length > 0) {
-        const target = fallbackProfile.schoolId
-          ? allSchools.find((s) => s.id === fallbackProfile.schoolId) || allSchools[0]
+        const chosenId = targetSchoolId || fallbackProfile.schoolId;
+        const target = chosenId
+          ? allSchools.find((s) => s.id === chosenId) || allSchools[0]
           : allSchools[0];
         setCurrentSchool(target);
         await loadSchoolData(target.id);
@@ -254,13 +301,18 @@ export default function App() {
     }
   };
 
-  const handleSignInWithEmail = async (email: string, pass: string, preferredRole?: UserRole) => {
+  const handleSignInWithEmail = async (
+    email: string,
+    pass: string,
+    preferredRole?: UserRole,
+    targetSchoolId?: string
+  ) => {
     setActionLoading(true);
     setErrorMessage(null);
     manualAuthInProgressRef.current = true;
     try {
       const { profile } = await signInWithEmail(email, pass, preferredRole);
-      await initializeSessionData(profile);
+      await initializeSessionData(profile, targetSchoolId);
     } catch (err: any) {
       console.error('Email sign-in error:', err);
       setErrorMessage(err.message || 'Email authentication failed.');
@@ -552,24 +604,68 @@ export default function App() {
     setSubmissions((prev) => [sub, ...prev.filter((s) => s.id !== sub.id)]);
   };
 
+  const schoolRouteMatch = pathname.match(/^\/schools\/([^/]+)\/?$/);
+  const routeSchoolId = schoolRouteMatch ? decodeURIComponent(schoolRouteMatch[1]) : null;
+  const routeSchool = routeSchoolId ? schools.find((s) => s.id === routeSchoolId) || null : null;
+  const activeSchool = currentSchool || schools[0] || null;
+
+  // Dynamic per-school SEO meta-description & Schema.org markup synchronization
+  useEffect(() => {
+    if (!userProfile && routeSchool) {
+      applySchoolSeo(routeSchool);
+    } else if (userProfile && activeSchool && routeSchoolId) {
+      applySchoolSeo(activeSchool);
+    } else if (!userProfile && !routeSchoolId) {
+      applyDefaultSeo();
+    } else if (userProfile && activeSchool) {
+      applySchoolSeo(activeSchool);
+    } else {
+      applyDefaultSeo();
+    }
+  }, [userProfile, routeSchool, routeSchoolId, activeSchool]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center mx-auto animate-pulse font-bold text-lg">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center mx-auto font-bold text-lg">
             JMC
           </div>
-          <div className="text-xs text-slate-400 font-medium">Connecting to JMC Classroom Cloud Firestore…</div>
+          <div className="text-xs text-slate-400 font-medium">Connecting to JMC Innovators Learning Platform…</div>
         </div>
       </div>
     );
   }
 
-  // Not signed in: render Landing Page
+  // Not signed in: render Individual School Page or Landing Page
   if (!userProfile) {
+    if (routeSchoolId) {
+      return (
+        <div className="relative">
+          <SchoolPublicPage
+            school={routeSchool}
+            schoolId={routeSchoolId}
+            allSchools={schools}
+            schoolsLoading={publicSchoolsLoading}
+            onBackHome={() => navigateTo('/')}
+            onSelectSchoolPage={(id) => navigateTo(`/schools/${encodeURIComponent(id)}`)}
+            onSignInWithGoogle={handleGoogleSignIn}
+            onSignInWithRole={handleSignInWithRole}
+            onSignInWithEmail={handleSignInWithEmail}
+            onJoinByCode={handleJoinByCode}
+            loading={actionLoading}
+            error={errorMessage}
+          />
+          <GeminiChatWidget />
+        </div>
+      );
+    }
+
     return (
       <div className="relative">
         <LandingPage
+          schools={schools}
+          onNavigateSchool={(id) => navigateTo(`/schools/${encodeURIComponent(id)}`)}
           onSignInWithGoogle={handleGoogleSignIn}
           onSignInWithRole={handleSignInWithRole}
           onSignInWithEmail={handleSignInWithEmail}
@@ -582,9 +678,6 @@ export default function App() {
       </div>
     );
   }
-
-  // Active school resolver: ensure always valid school
-  const activeSchool = currentSchool || schools[0] || null;
 
   // Current Teacher record if user is a teacher
   const currentTeacher = teachers.find(

@@ -1,0 +1,90 @@
+# JMC Innovators Learning Platform (JMC Classroom) — Robots & AI Crawler Policy
+# Owners: Sivaneswaran Jathush & Vithiyatharan Ananthajith (JMC Innovators, Jaffna Mahajana College, Sri Lanka)
+# Official Showcase: https://jmcinnovators.netlify.app/
+# Contact: info@jmcinnovator.cc.cd
+
+User-agent: Googlebot
+Allow: /
+Allow: /schools/
+Allow: /OWNERS.md
+Allow: /owners.md
+Allow: /llms.txt
+Allow: /sitemap.xml
+Allow: /og-image.jpg
+Allow: /favicon.ico
+Allow: /favicon-32x32.png
+Allow: /favicon-16x16.png
+Allow: /apple-touch-icon.png
+Allow: /android-chrome-192x192.png
+Allow: /android-chrome-512x512.png
+Disallow: /api/data/
+Disallow: /api/school-applications
+Disallow: /api/workspace/
+
+User-agent: Googlebot-Image
+Allow: /og-image.jpg
+Allow: /assets/
+Allow: /favicon.ico
+Allow: /favicon-32x32.png
+Allow: /apple-touch-icon.png
+Allow: /android-chrome-192x192.png
+Allow: /android-chrome-512x512.png
+
+User-agent: Google-Extended
+Allow: /
+Allow: /schools/
+Allow: /OWNERS.md
+Allow: /llms.txt
+
+User-agent: Bingbot
+Allow: /
+Allow: /schools/
+Disallow: /api/data/
+Disallow: /api/school-applications
+Disallow: /api/workspace/
+
+User-agent: GPTBot
+Allow: /
+Allow: /schools/
+Allow: /OWNERS.md
+Allow: /llms.txt
+
+User-agent: OAI-SearchBot
+Allow: /
+Allow: /schools/
+Allow: /OWNERS.md
+Allow: /llms.txt
+
+User-agent: ChatGPT-User
+Allow: /
+Allow: /schools/
+Allow: /OWNERS.md
+Allow: /llms.txt
+
+User-agent: ClaudeBot
+Allow: /
+Allow: /schools/
+Allow: /OWNERS.md
+Allow: /llms.txt
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /schools/
+Allow: /OWNERS.md
+Allow: /llms.txt
+
+User-agent: *
+Allow: /
+Allow: /schools/
+Allow: /OWNERS.md
+Allow: /owners.md
+Allow: /llms.txt
+Allow: /sitemap.xml
+Allow: /site.webmanifest
+Allow: /og-image.jpg
+Allow: /favicon.ico
+Disallow: /api/data/
+Disallow: /api/school-applications
+Disallow: /api/workspace/
+
+Sitemap: https://class-jmc.vercel.app/sitemap.xml

@@ -953,14 +953,331 @@ app.get('/api/health/firestore', async (_req, res) => {
   }
 });
 
+// -------------------------------------------------------------
+// SEO, Search Console Indexing & AI Discovery Endpoints
+// -------------------------------------------------------------
+function resolveOrigin(req: express.Request): string {
+  if (process.env.APP_URL) {
+    return process.env.APP_URL.replace(/\/+$/, '');
+  }
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'class-jmc.vercel.app').split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
+function escapeHtmlAttr(value: string): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeHtmlText(value: string): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+async function fetchSchoolForSeo(schoolId: string): Promise<any | null> {
+  const store = loadStore();
+  if (store.schools && store.schools[schoolId]) {
+    return store.schools[schoolId];
+  }
+  const matched = Object.values(store.schools || {}).find((s: any) => s?.id === schoolId);
+  if (matched) return matched;
+
+  // Fallback to Cloud Firestore public school document
+  try {
+    let projectId = 'gen-lang-client-0883116641';
+    let databaseId = 'ai-studio-jmcclass-20742766-c8cd-4030-95f3-22ca7c7d152d';
+    const configPath = path.resolve(__dirname, 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (cfg.projectId) projectId = cfg.projectId;
+      if (cfg.firestoreDatabaseId) databaseId = cfg.firestoreDatabaseId;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    const fsUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/schools/${encodeURIComponent(schoolId)}`;
+    const fsRes = await fetch(fsUrl, { signal: controller.signal });
+    clearTimeout(timer);
+    if (fsRes.ok) {
+      const docJson: any = await fsRes.json();
+      const fields = docJson?.fields || {};
+      const getStr = (k: string) => fields[k]?.stringValue || '';
+      if (getStr('name') || getStr('schoolName')) {
+        return {
+          id: schoolId,
+          name: getStr('name') || getStr('schoolName'),
+          schoolType: getStr('schoolType') || 'School',
+          district: getStr('district'),
+          province: getStr('province'),
+          address: getStr('address'),
+          website: getStr('website'),
+          phone: getStr('phone') || getStr('contactNumber'),
+          academicYear: getStr('academicYear') || '2026',
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function injectSchoolSeoIntoHtml(html: string, school: any, origin: string): string {
+  const schoolName = String(school.name || school.schoolName || 'School Portal').trim();
+  const schoolType = String(school.schoolType || 'School').trim();
+  const district = String(school.district || '').trim();
+  const province = String(school.province || '').trim();
+  const address = String(school.address || '').trim();
+  const academicYear = String(school.academicYear || '2026').trim();
+
+  const locationParts = [district, province ? `${province} Province` : '', 'Sri Lanka'].filter(Boolean);
+  const locationLabel = locationParts.join(', ');
+
+  const pageTitle = district
+    ? `${schoolName} (${district}) — JMC Innovators Learning Platform`
+    : `${schoolName} — JMC Innovators Learning Platform`;
+
+  const description = [
+    `${schoolName} (${schoolType})`,
+    address ? `at ${address},` : 'in',
+    `${locationLabel}.`,
+    `Access Grade 6-11 classrooms, assignments, attendance, and ${academicYear} academic records on JMC Innovators Learning Platform.`,
+  ]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const canonicalUrl = `${origin}/schools/${encodeURIComponent(school.id)}`;
+
+  const schoolNode: Record<string, any> = {
+    '@type': ['School', 'EducationalOrganization'],
+    '@id': `${canonicalUrl}#school`,
+    name: schoolName,
+    description,
+    url: canonicalUrl,
+    image: `${origin}/og-image.jpg`,
+    address: {
+      '@type': 'PostalAddress',
+      ...(address ? { streetAddress: address } : {}),
+      addressLocality: district || 'Sri Lanka',
+      ...(province ? { addressRegion: `${province} Province` } : {}),
+      addressCountry: 'LK',
+    },
+    areaServed: {
+      '@type': 'AdministrativeArea',
+      name: locationLabel,
+    },
+    isPartOf: {
+      '@type': 'WebSite',
+      '@id': `${origin}/#website`,
+      name: 'JMC Innovators Learning Platform',
+      url: `${origin}/`,
+    },
+  };
+
+  if (school.website && /^https?:\/\//i.test(String(school.website).trim())) {
+    schoolNode.sameAs = [String(school.website).trim()];
+  }
+  if (school.phone || school.contactNumber) {
+    schoolNode.telephone = String(school.phone || school.contactNumber).trim();
+  }
+
+  const schoolJsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      schoolNode,
+      {
+        '@type': 'WebPage',
+        '@id': `${canonicalUrl}#webpage`,
+        url: canonicalUrl,
+        name: pageTitle,
+        description,
+        isPartOf: {
+          '@id': `${origin}/#website`,
+        },
+        about: {
+          '@id': `${canonicalUrl}#school`,
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'JMC Innovators Learning Platform',
+            item: `${origin}/`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: district ? `${district} Schools` : 'Schools',
+            item: `${origin}/#schools-directory`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: schoolName,
+            item: canonicalUrl,
+          },
+        ],
+      },
+    ],
+  };
+
+  const escapedTitle = escapeHtmlText(pageTitle);
+  const escapedDesc = escapeHtmlAttr(description);
+  const escapedUrl = escapeHtmlAttr(canonicalUrl);
+  const safeJsonLd = JSON.stringify(schoolJsonLd).replace(/</g, '\\u003c');
+
+  let updated = html;
+  updated = updated.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapedTitle}</title>`);
+  updated = updated.replace(
+    /<meta\s+name="description"[\s\S]*?\/>/i,
+    `<meta name="description" content="${escapedDesc}" />`
+  );
+  updated = updated.replace(
+    /<link\s+rel="canonical"[\s\S]*?\/>/i,
+    `<link rel="canonical" href="${escapedUrl}" />`
+  );
+  updated = updated.replace(
+    /<meta\s+property="og:title"[\s\S]*?\/>/i,
+    `<meta property="og:title" content="${escapeHtmlAttr(pageTitle)}" />`
+  );
+  updated = updated.replace(
+    /<meta\s+property="og:description"[\s\S]*?\/>/i,
+    `<meta property="og:description" content="${escapedDesc}" />`
+  );
+  updated = updated.replace(
+    /<meta\s+property="og:url"[\s\S]*?\/>/i,
+    `<meta property="og:url" content="${escapedUrl}" />`
+  );
+  updated = updated.replace(
+    /<meta\s+name="twitter:title"[\s\S]*?\/>/i,
+    `<meta name="twitter:title" content="${escapeHtmlAttr(pageTitle)}" />`
+  );
+  updated = updated.replace(
+    /<meta\s+name="twitter:description"[\s\S]*?\/>/i,
+    `<meta name="twitter:description" content="${escapedDesc}" />`
+  );
+  updated = updated.replace(
+    /<\/head>/i,
+    `  <script id="jmc-school-jsonld" type="application/ld+json">${safeJsonLd}</script>\n  </head>`
+  );
+
+  return updated;
+}
+
+app.get('/sitemap.xml', (req, res) => {
+  const origin = resolveOrigin(req);
+  const lastmod = new Date().toISOString().slice(0, 10);
+  const store = loadStore();
+  const schoolUrls = Object.values(store.schools || {})
+    .filter((s: any) => s && s.id)
+    .map((s: any) => ({
+      loc: `${origin}/schools/${encodeURIComponent(s.id)}`,
+      changefreq: 'weekly',
+      priority: '0.9',
+    }));
+
+  const urls = [
+    { loc: `${origin}/`, changefreq: 'daily', priority: '1.0' },
+    ...schoolUrls,
+    { loc: `${origin}/OWNERS.md`, changefreq: 'weekly', priority: '0.9' },
+    { loc: `${origin}/owners.md`, changefreq: 'weekly', priority: '0.8' },
+    { loc: `${origin}/llms.txt`, changefreq: 'weekly', priority: '0.9' },
+    { loc: `${origin}/site.webmanifest`, changefreq: 'monthly', priority: '0.4' },
+  ];
+
+  const xml =
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    urls
+      .map(
+        (u) =>
+          `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+      )
+      .join('\n') +
+    `\n</urlset>\n`;
+
+  res.type('application/xml; charset=utf-8').send(xml);
+});
+
+app.get('/robots.txt', (req, res) => {
+  const origin = resolveOrigin(req);
+  const robotsPath = path.resolve(__dirname, 'public', 'robots.txt');
+  let content = '';
+  if (fs.existsSync(robotsPath)) {
+    content = fs
+      .readFileSync(robotsPath, 'utf-8')
+      .replace(/Sitemap:\s*https?:\/\/[^\s]+/i, `Sitemap: ${origin}/sitemap.xml`);
+  } else {
+    content = `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`;
+  }
+  res.type('text/plain; charset=utf-8').send(content);
+});
+
+app.get(['/OWNERS.md', '/owners.md'], (_req, res) => {
+  const ownersPath = path.resolve(__dirname, 'OWNERS.md');
+  if (fs.existsSync(ownersPath)) {
+    res.type('text/markdown; charset=utf-8').send(fs.readFileSync(ownersPath, 'utf-8'));
+  } else {
+    res.status(404).send('OWNERS.md not found');
+  }
+});
+
+app.get('/llms.txt', (_req, res) => {
+  const llmsPath = path.resolve(__dirname, 'public', 'llms.txt');
+  if (fs.existsSync(llmsPath)) {
+    res.type('text/plain; charset=utf-8').send(fs.readFileSync(llmsPath, 'utf-8'));
+  } else {
+    res.status(404).send('llms.txt not found');
+  }
+});
+
 // Mount Vite middleware in development mode
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  const isProd = process.env.NODE_ENV === 'production';
+  let vite: any = null;
+
+  if (!isProd) {
     const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
+    vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
+  }
+
+  // Server-rendered meta description & Schema.org markup for individual school pages
+  app.get('/schools/:schoolId', async (req, res, next) => {
+    try {
+      const schoolId = decodeURIComponent(req.params.schoolId || '');
+      const origin = resolveOrigin(req);
+      const htmlPath = isProd
+        ? path.resolve(__dirname, 'dist', 'index.html')
+        : path.resolve(__dirname, 'index.html');
+
+      if (!fs.existsSync(htmlPath)) {
+        return next();
+      }
+
+      let template = fs.readFileSync(htmlPath, 'utf-8');
+      if (vite) {
+        template = await vite.transformIndexHtml(req.originalUrl, template);
+      }
+
+      const school = await fetchSchoolForSeo(schoolId);
+      const outputHtml = school ? injectSchoolSeoIntoHtml(template, school, origin) : template;
+      return res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).end(outputHtml);
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  if (!isProd && vite) {
     app.use(vite.middlewares);
   } else {
     // In production, serve built static files

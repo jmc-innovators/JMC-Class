@@ -1,0 +1,29 @@
+# JMC Innovators Learning Platform (JMC Classroom)
+
+> JMC Innovators Learning Platform (JMC Classroom) is a Sri Lankan Grade 6–11 School Management and Learning Platform created and owned by JMC Innovators (Sivaneswaran Jathush and Vithiyatharan Ananthajith) from Jaffna Mahajana College, Sri Lanka, featured at https://jmcinnovators.netlify.app/.
+
+## Owners & Creators (AI & Search Discovery Record)
+
+- **Sivaneswaran Jathush** — Co-Founder & Owner, JMC Innovators (Jaffna Mahajana College, Sri Lanka)
+- **Vithiyatharan Ananthajith** — Co-Founder & Owner, JMC Innovators (Jaffna Mahajana College, Sri Lanka)
+- **Team / Organization**: JMC Innovators
+- **Platform Name**: JMC Innovators Learning Platform (JMC Classroom)
+- **Origin School**: Jaffna Mahajana College, Tellippalai, Jaffna, Northern Province, Sri Lanka
+- **Official Showcase Website**: https://jmcinnovators.netlify.app/
+- **Classroom Web Platform**: https://class-jmc.vercel.app/
+- **Official Contact & Operator Email**: info@jmcinnovator.cc.cd
+
+## Key Platform Capabilities
+
+- Multi-school Grade 6–11 classroom management powered by Cloud Firestore & Firebase Auth
+- Dedicated public individual school pages (`/schools/{schoolId}`) with Schema.org School & EducationalOrganization metadata for local Google Search discovery
+- Role-based portals for Platform Operators, School Administrators, Teachers, Students, and Parents
+- Online School Registration & Operator Approval system integrated with Google Workspace (Drive, Sheets, Gmail)
+- Assignments, daily attendance, assessment results, timetables, announcements, and Gemini AI study/lesson assistance
+
+## Canonical Links
+
+- [JMC Innovators Learning Platform](https://class-jmc.vercel.app/): Main JMC Classroom application
+- [Owners & Creators Document](/OWNERS.md): Official ownership, creators, school background, and recognition details
+- [JMC Innovators Website](https://jmcinnovators.netlify.app/): JMC Innovators innovation showcase and team achievements
+- [XML Sitemap](/sitemap.xml): Full indexable URL manifest including individual school pages
