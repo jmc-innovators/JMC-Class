@@ -21,6 +21,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { SchoolRegistrationModal } from './SchoolRegistrationModal';
+import { PRIMARY_OPERATOR_EMAIL } from '../lib/firebase';
 
 interface LandingPageProps {
   schools?: SchoolModel[];
@@ -343,11 +344,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="flex items-center gap-2 font-medium">
                     <Shield className="w-3.5 h-3.5 text-purple-400 shrink-0" /> Platform Operator Portal
                   </span>
-                  <span className="text-[11px] text-slate-400 truncate ml-2">info@jmcinnovator.cc.cd</span>
+                  <span className="text-[11px] text-slate-400 truncate ml-2">{PRIMARY_OPERATOR_EMAIL}</span>
                 </button>
                 {selectedRole === 'operator' && (
                   <div className="px-3 py-2 rounded-xl bg-purple-500/10 border border-purple-500/25 text-xs text-purple-200">
-                    Authorized Operator Account: <strong className="text-white">info@jmcinnovator.cc.cd</strong>
+                    Authorized Operator Account: <strong className="text-white">{PRIMARY_OPERATOR_EMAIL}</strong>
                   </div>
                 )}
               </div>

@@ -24,7 +24,7 @@ service cloud.firestore {
       return request.auth.token.email != null
         && request.auth.token.email_verified == true
         && (
-          request.auth.token.email == 'info@jmcinnovator.cc.cd' ||
+          request.auth.token.email == 'innovatorsjmc@gmail.com' ||
           request.auth.token.email == 'jmc.class2027@gmail.com' ||
           request.auth.token.email == 'operator@jmc.internal' ||
           request.auth.token.email == 'operator@jmc.com'

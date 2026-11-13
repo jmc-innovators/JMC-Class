@@ -11,7 +11,8 @@
 - **Origin School**: Jaffna Mahajana College, Tellippalai, Jaffna, Northern Province, Sri Lanka
 - **Official Showcase Website**: https://jmcinnovators.netlify.app/
 - **Classroom Web Platform**: https://jmcinnovator.cc.cd/
-- **Official Contact & Operator Email**: info@jmcinnovator.cc.cd
+- **Official Website Contact**: info@jmcinnovator.cc.cd
+- **Platform Automation Operator**: innovatorsjmc@gmail.com
 
 ## Key Platform Capabilities
 

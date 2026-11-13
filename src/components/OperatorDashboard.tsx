@@ -59,6 +59,7 @@ import {
 } from '../lib/firebase';
 import {
   fetchWorkspaceConfig,
+  saveWorkspaceConfig,
   verifyWorkspaceAccountAndAliases,
   provisionWorkspaceAutomation,
   syncAllApplicationsToSheets,
@@ -66,6 +67,7 @@ import {
   executeRejectionInWorkspace,
   generateSystemReportToDrive,
   backupDatabaseToDrive,
+  sendTestEmailNotification,
   WORKSPACE_ROOT_FOLDER_NAME,
   WORKSPACE_SPREADSHEET_NAME,
   SUBFOLDER_NAMES,
@@ -95,7 +97,7 @@ interface OperatorDashboardProps {
   loading: boolean;
 }
 
-type ConfirmActionType = 'provision' | 'sync' | 'report' | 'backup' | 'approve' | 'reject';
+type ConfirmActionType = 'provision' | 'sync' | 'report' | 'backup' | 'approve' | 'reject' | 'testEmail';
 
 interface PendingConfirmation {
   type: ConfirmActionType;
@@ -211,16 +213,34 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
     loadWorkspaceSettings();
   }, [loadApplications, loadWorkspaceSettings]);
 
+  const allWorkspaceApisOk = Boolean(
+    workspaceToken &&
+      verification?.driveApiOk &&
+      verification?.sheetsApiOk &&
+      verification?.gmailApiOk
+  );
+  const isWorkspaceLiveConnected = Boolean(
+    allWorkspaceApisOk && workspaceConfig?.configured && workspaceConfig?.spreadsheetId
+  );
+  const hasAccountMismatch = Boolean(
+    workspaceToken && verification && !verification.accountMatchesPrimary
+  );
+
   const handleConnectWorkspace = async () => {
     setWorkspaceLoading(true);
     setWorkspaceNotice(null);
     try {
       const { accessToken } = await connectGoogleWorkspace();
       setWorkspaceToken(accessToken);
-      const verifyResult = await verifyWorkspaceAccountAndAliases(accessToken);
+      const verifyResult = await verifyWorkspaceAccountAndAliases(
+        accessToken,
+        workspaceConfig?.spreadsheetId
+      );
       setVerification(verifyResult);
+      const apisPassed =
+        verifyResult.driveApiOk && verifyResult.sheetsApiOk && verifyResult.gmailApiOk;
       setWorkspaceNotice({
-        type: 'success',
+        type: !apisPassed ? 'error' : verifyResult.accountMatchesPrimary ? 'success' : 'info',
         text: verifyResult.message,
       });
     } catch (err: any) {
@@ -228,6 +248,53 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
       setWorkspaceNotice({
         type: 'error',
         text: err?.message || 'Could not authorize Google Workspace access.',
+      });
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  };
+
+  const handleRunLiveApiTests = async () => {
+    if (!workspaceToken) {
+      setWorkspaceNotice({
+        type: 'error',
+        text: `Authorize Google Workspace (${PRIMARY_OPERATOR_EMAIL}) first before running API tests.`,
+      });
+      return;
+    }
+    setWorkspaceLoading(true);
+    setWorkspaceNotice(null);
+    try {
+      const verifyResult = await verifyWorkspaceAccountAndAliases(
+        workspaceToken,
+        workspaceConfig?.spreadsheetId
+      );
+      setVerification((prev) => ({
+        ...verifyResult,
+        gmailSendVerified: prev?.gmailSendVerified,
+      }));
+      if (workspaceConfig?.configured) {
+        const updatedCfg = await saveWorkspaceConfig(
+          {
+            ...workspaceConfig,
+            apiVerified:
+              verifyResult.driveApiOk && verifyResult.sheetsApiOk && verifyResult.gmailApiOk,
+            lastTestedAt: verifyResult.testedAt,
+          },
+          verifyResult.connectedEmail || user.email
+        );
+        setWorkspaceConfig(updatedCfg);
+      }
+      const apisPassed =
+        verifyResult.driveApiOk && verifyResult.sheetsApiOk && verifyResult.gmailApiOk;
+      setWorkspaceNotice({
+        type: !apisPassed ? 'error' : verifyResult.accountMatchesPrimary ? 'success' : 'info',
+        text: verifyResult.message,
+      });
+    } catch (err: any) {
+      setWorkspaceNotice({
+        type: 'error',
+        text: err?.message || 'Live Workspace API test failed.',
       });
     } finally {
       setWorkspaceLoading(false);
@@ -420,6 +487,26 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
     });
   };
 
+  const requestTestEmailConfirmation = () => {
+    if (!workspaceToken) {
+      setWorkspaceNotice({
+        type: 'error',
+        text: `Please authorize Google Workspace (${PRIMARY_OPERATOR_EMAIL}) first.`,
+      });
+      return;
+    }
+    setPendingConfirm({
+      type: 'testEmail',
+      title: `Send Live Gmail Test Email to ${PRIMARY_OPERATOR_EMAIL}?`,
+      description: 'Dispatches a real verification email using the Gmail API to confirm automated sending works.',
+      items: [
+        `Recipient: ${PRIMARY_OPERATOR_EMAIL}`,
+        `Reply-To: ${PRIMARY_OPERATOR_EMAIL}`,
+        `Authorized Session Account: ${verification?.connectedEmail || 'Current Google OAuth session'}`,
+      ],
+    });
+  };
+
   const requestApproveConfirmation = () => {
     if (!selectedApp) return;
     const remarks = operatorRemarks.trim() || 'Verified and approved by JMC Platform Operator';
@@ -578,6 +665,34 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
         setWorkspaceNotice({
           type: 'error',
           text: err?.message || 'Failed to create Drive backup.',
+        });
+      } finally {
+        setWorkspaceLoading(false);
+      }
+      return;
+    }
+
+    if (action.type === 'testEmail' && workspaceToken) {
+      setWorkspaceLoading(true);
+      setWorkspaceNotice(null);
+      try {
+        const res = await sendTestEmailNotification(workspaceToken, workspaceConfig || undefined);
+        setVerification((prev) =>
+          prev
+            ? {
+                ...prev,
+                gmailSendVerified: true,
+              }
+            : prev
+        );
+        setWorkspaceNotice({
+          type: 'success',
+          text: `Gmail API live send succeeded! Verification email dispatched to ${res.sentTo} (Message ID: ${res.id}).`,
+        });
+      } catch (err: any) {
+        setWorkspaceNotice({
+          type: 'error',
+          text: `Gmail API live send failed: ${err?.message || 'Unknown Gmail API error.'}`,
         });
       } finally {
         setWorkspaceLoading(false);
@@ -744,13 +859,33 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
           <button
             onClick={() => setActiveTab('workspace')}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
-              workspaceToken
+              isWorkspaceLiveConnected && !hasAccountMismatch
                 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                : workspaceToken && !allWorkspaceApisOk
+                ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
                 : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
             }`}
           >
-            <span className={`w-2 h-2 rounded-full ${workspaceToken ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            <span>{workspaceToken ? 'Workspace Connected' : 'Connect Google Office'}</span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isWorkspaceLiveConnected && !hasAccountMismatch
+                  ? 'bg-emerald-400'
+                  : workspaceToken && !allWorkspaceApisOk
+                  ? 'bg-rose-400'
+                  : 'bg-amber-400'
+              }`}
+            />
+            <span>
+              {!workspaceToken
+                ? `Authorize Google (${PRIMARY_OPERATOR_EMAIL})`
+                : !allWorkspaceApisOk
+                ? 'Workspace API Check Failed'
+                : hasAccountMismatch
+                ? 'Connected (Account Mismatch)'
+                : isWorkspaceLiveConnected
+                ? 'Workspace Connected & Verified'
+                : 'Google Verified · Setup Folders'}
+            </span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}
@@ -827,26 +962,32 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
                 <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
               </div>
               <div>
-                <div className="font-bold text-white flex items-center gap-2">
+                <div className="font-bold text-white flex flex-wrap items-center gap-2">
                   <span>Google Office Automation (Drive, Sheets &amp; Gmail)</span>
                   <span
-                    className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                      workspaceToken && workspaceConfig?.spreadsheetId
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    className={`text-[10px] px-2 py-0.5 rounded font-bold border ${
+                      isWorkspaceLiveConnected && !hasAccountMismatch
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        : workspaceToken && !allWorkspaceApisOk
+                        ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                     }`}
                   >
-                    {workspaceToken && workspaceConfig?.spreadsheetId
-                      ? 'LIVE SYNC READY'
-                      : workspaceToken
-                      ? 'NEEDS INITIALIZATION'
-                      : 'NOT CONNECTED THIS SESSION'}
+                    {!workspaceToken
+                      ? 'NOT AUTHORIZED'
+                      : !allWorkspaceApisOk
+                      ? 'API VERIFICATION FAILED'
+                      : hasAccountMismatch
+                      ? 'ACCOUNT MISMATCH'
+                      : isWorkspaceLiveConnected
+                      ? 'CONNECTED & VERIFIED'
+                      : 'VERIFIED — NEEDS INITIALIZATION'}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  {workspaceConfig?.spreadsheetUrl
-                    ? `Database: "${WORKSPACE_SPREADSHEET_NAME}" · Sender policy: ${PRIMARY_OPERATOR_EMAIL}`
-                    : `Connect Google Workspace (${PRIMARY_OPERATOR_EMAIL}) to auto-update Sheets, Drive & send Gmail notices on Approve/Reject.`}
+                  {isWorkspaceLiveConnected
+                    ? `Database: "${WORKSPACE_SPREADSHEET_NAME}" · Authorized: ${verification?.connectedEmail || PRIMARY_OPERATOR_EMAIL} · Emails: ${PRIMARY_OPERATOR_EMAIL}`
+                    : `Authorize ${PRIMARY_OPERATOR_EMAIL} and verify Drive, Sheets, and Gmail APIs before running automated sync & emails.`}
                 </p>
               </div>
             </div>
@@ -1388,9 +1529,9 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
                         <div className="text-xs text-slate-300">
                           <span className="font-bold text-white">Operator Approval &amp; Email Dispatch:</span>
                           <p className="text-slate-400 text-[11px] mt-0.5">
-                            {workspaceToken && workspaceConfig?.spreadsheetId
-                              ? `Connected to Google Workspace (${verification?.connectedEmail || PRIMARY_OPERATOR_EMAIL}). You will be asked to confirm Sheets, Drive & Gmail updates before execution.`
-                              : 'Connect Google Workspace in the Google Workspace Automation tab to also update Google Sheets, archive to Drive, and send Gmail notifications automatically.'}
+                            {isWorkspaceLiveConnected
+                              ? `Connected & verified (${verification?.connectedEmail || PRIMARY_OPERATOR_EMAIL}). You will be asked to confirm Sheets, Drive & Gmail updates before execution.`
+                              : `Authorize ${PRIMARY_OPERATOR_EMAIL} and verify Drive & Sheets in the Google Workspace Automation tab to enable live Sheets, Drive & Gmail notifications.`}
                           </p>
                         </div>
 
@@ -1514,34 +1655,129 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="p-3.5 rounded-xl bg-[#0b0f19] border border-emerald-500/30 space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
+                  <div
+                    className={`p-3.5 rounded-xl bg-[#0b0f19] border space-y-2 text-xs ${
+                      !allWorkspaceApisOk
+                        ? 'border-rose-500/30'
+                        : hasAccountMismatch
+                        ? 'border-amber-500/30'
+                        : 'border-emerald-500/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
                       <span className="text-slate-400">Authorized Google Account</span>
-                      <span className="font-bold text-emerald-300">
-                        {verification?.connectedEmail || workspaceConfig?.connectedGoogleEmail || 'Verified'}
+                      <span
+                        className={`font-bold truncate ${
+                          verification?.accountMatchesPrimary ? 'text-emerald-300' : 'text-amber-300'
+                        }`}
+                      >
+                        {verification?.connectedEmail || 'Unverified'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-slate-400">Primary Operator Match</span>
+                      <span
+                        className={`font-semibold ${
+                          verification?.accountMatchesPrimary ? 'text-emerald-400' : 'text-amber-400'
+                        }`}
+                      >
+                        {verification?.accountMatchesPrimary
+                          ? `Matches ${PRIMARY_OPERATOR_EMAIL}`
+                          : `Mismatch (Expected ${PRIMARY_OPERATOR_EMAIL})`}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Drive &amp; Sheets API</span>
-                      <span className="font-semibold text-emerald-400 flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5" />
-                        {verification?.canAuthorizeDriveAndSheets ? 'Authorized' : 'Connected'}
+                      <span className="text-slate-400">Google Drive API</span>
+                      <span
+                        className={`font-semibold flex items-center gap-1 ${
+                          verification?.driveApiOk ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {verification?.driveApiOk ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Verified</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Failed / Not Tested</span>
+                          </>
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Gmail Send Capability</span>
-                      <span className="font-semibold text-emerald-400 flex items-center gap-1">
-                        <Send className="w-3.5 h-3.5" />
-                        {verification?.canSendEmail ? 'Ready' : 'Active'}
+                      <span className="text-slate-400">Google Sheets API</span>
+                      <span
+                        className={`font-semibold flex items-center gap-1 ${
+                          verification?.sheetsApiOk ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {verification?.sheetsApiOk ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Verified</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Failed / Not Tested</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Gmail API</span>
+                      <span
+                        className={`font-semibold flex items-center gap-1 ${
+                          verification?.gmailApiOk ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {verification?.gmailApiOk ? (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>
+                              {verification.gmailSendVerified ? 'Send & Profile Verified' : 'Profile Verified'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Failed / Not Tested</span>
+                          </>
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Sender Alias Mode</span>
                       <span className="font-mono font-bold text-blue-300">
-                        {verification?.aliasMode || workspaceConfig?.aliasMode || 'verified'}
+                        {verification?.aliasMode || 'unverified'}
                       </span>
                     </div>
+                    {verification?.testedAt && (
+                      <div className="text-[10px] text-slate-500 pt-1 border-t border-white/10">
+                        Last live API check: {new Date(verification.testedAt).toLocaleString()}
+                      </div>
+                    )}
                   </div>
+
+                  {hasAccountMismatch && (
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 leading-relaxed">
+                      Signed in as <b>{verification?.connectedEmail}</b> instead of{' '}
+                      <b>{PRIMARY_OPERATOR_EMAIL}</b>. Click <b>Switch Account</b> and sign in with{' '}
+                      <b>{PRIMARY_OPERATOR_EMAIL}</b> so Drive folders, Sheets, and Gmail emails are owned directly by{' '}
+                      <b>{PRIMARY_OPERATOR_EMAIL}</b>.
+                    </div>
+                  )}
+
+                  {verification?.apiErrors && Object.keys(verification.apiErrors).length > 0 && (
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-200 space-y-1">
+                      <div className="font-bold text-rose-300">Live API Test Errors:</div>
+                      {verification.apiErrors.drive && <div>Drive: {verification.apiErrors.drive}</div>}
+                      {verification.apiErrors.sheets && <div>Sheets: {verification.apiErrors.sheets}</div>}
+                      {verification.apiErrors.gmail && <div>Gmail: {verification.apiErrors.gmail}</div>}
+                    </div>
+                  )}
 
                   {verification?.availableSendAsAliases && verification.availableSendAsAliases.length > 0 && (
                     <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-[11px] space-y-1">
@@ -1560,11 +1796,29 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <button
                       type="button"
+                      onClick={handleRunLiveApiTests}
+                      disabled={workspaceLoading}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-xs font-semibold text-blue-200 border border-blue-500/30 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${workspaceLoading ? 'animate-spin' : ''}`} />
+                      <span>Run Live API Tests</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={requestTestEmailConfirmation}
+                      disabled={workspaceLoading || !verification?.gmailApiOk}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-xs font-semibold text-emerald-200 border border-emerald-500/30 disabled:opacity-40"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send Test Email</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleConnectWorkspace}
                       disabled={workspaceLoading}
                       className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-200 border border-white/10"
                     >
-                      Switch / Re-verify Account
+                      Switch Account
                     </button>
                     <button
                       type="button"

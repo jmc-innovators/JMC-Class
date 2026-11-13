@@ -122,6 +122,27 @@ async function googleFetch<T = any>(
 // -------------------------------------------------------------
 // Persisted Non-Secret Workspace Config (Drive Folder IDs & Sheet ID)
 // -------------------------------------------------------------
+function sanitizeWorkspaceConfigForCurrentOperator(
+  raw: Partial<GoogleWorkspaceConfig> | null | undefined
+): GoogleWorkspaceConfig {
+  const targetEmail = PRIMARY_OPERATOR_EMAIL.toLowerCase().trim();
+  const storedPrimary = String(raw?.primaryAccountEmail || '').toLowerCase().trim();
+  const storedConnected = String(raw?.connectedGoogleEmail || '').toLowerCase().trim();
+
+  if (!raw || storedPrimary !== targetEmail || storedConnected === 'info@jmcinnovator.cc.cd') {
+    return {
+      configured: false,
+      primaryAccountEmail: PRIMARY_OPERATOR_EMAIL,
+    };
+  }
+
+  return {
+    ...raw,
+    configured: Boolean(raw.configured && raw.rootFolderId && raw.spreadsheetId),
+    primaryAccountEmail: PRIMARY_OPERATOR_EMAIL,
+  };
+}
+
 export async function fetchWorkspaceConfig(actorEmail?: string): Promise<GoogleWorkspaceConfig> {
   const resolvedEmail = (actorEmail || auth.currentUser?.email || PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
   const idToken = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => null) : null;
@@ -131,11 +152,7 @@ export async function fetchWorkspaceConfig(actorEmail?: string): Promise<GoogleW
       const snap = await getDoc(doc(db, 'system_config', 'google_workspace'));
       if (snap.exists()) {
         const data = snap.data() as Partial<GoogleWorkspaceConfig>;
-        return {
-          ...data,
-          configured: Boolean(data.configured),
-          primaryAccountEmail: data.primaryAccountEmail || PRIMARY_OPERATOR_EMAIL,
-        };
+        return sanitizeWorkspaceConfigForCurrentOperator(data);
       }
     } catch (err) {
       console.warn('Firestore workspace config read notice:', err);
@@ -151,7 +168,8 @@ export async function fetchWorkspaceConfig(actorEmail?: string): Promise<GoogleW
       },
     });
     if (res.ok) {
-      return await res.json();
+      const apiCfg = await res.json();
+      return sanitizeWorkspaceConfigForCurrentOperator(apiCfg);
     }
   } catch {}
 
@@ -167,8 +185,14 @@ export async function saveWorkspaceConfig(
 ): Promise<GoogleWorkspaceConfig> {
   const resolvedEmail = (actorEmail || auth.currentUser?.email || PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
   const idToken = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => null) : null;
+  const cleanCopy: Record<string, any> = { ...config };
+  delete cleanCopy.accessToken;
+  delete cleanCopy.token;
+  delete cleanCopy.refreshToken;
+  delete cleanCopy.idToken;
+
   const payload: GoogleWorkspaceConfig = {
-    ...config,
+    ...(cleanCopy as GoogleWorkspaceConfig),
     primaryAccountEmail: PRIMARY_OPERATOR_EMAIL,
     updatedAt: new Date().toISOString(),
   };
@@ -204,31 +228,61 @@ export async function saveWorkspaceConfig(
 }
 
 // -------------------------------------------------------------
-// Account & Alias Verification (info@jmcinnovator.cc.cd)
+// Account, Alias & Live API Verification (innovatorsjmc@gmail.com)
 // -------------------------------------------------------------
 export async function verifyWorkspaceAccountAndAliases(
-  accessToken: string
+  accessToken: string,
+  spreadsheetId?: string
 ): Promise<WorkspaceVerificationResult> {
   const targetEmail = PRIMARY_OPERATOR_EMAIL.toLowerCase();
+  const testedAt = new Date().toISOString();
 
   let connectedEmail = '';
-  let canAuthorizeDriveAndSheets = false;
-  let canSendEmail = false;
+  let driveApiOk = false;
+  let sheetsApiOk = false;
+  let gmailApiOk = false;
   let availableSendAsAliases: WorkspaceVerificationResult['availableSendAsAliases'] = [];
+  const apiErrors: WorkspaceVerificationResult['apiErrors'] = {};
 
+  // 1. Live Google Drive API Check (about + files list)
   try {
     const driveAbout = await googleFetch<any>(`${DRIVE_API}/about?fields=user`, accessToken);
     connectedEmail = String(driveAbout?.user?.emailAddress || '').toLowerCase().trim();
-    canAuthorizeDriveAndSheets = true;
-  } catch {}
+    await googleFetch<any>(`${DRIVE_API}/files?pageSize=1&fields=files(id)&spaces=drive`, accessToken);
+    driveApiOk = true;
+  } catch (err: any) {
+    apiErrors.drive = err?.message || 'Drive API check failed.';
+  }
 
+  // 2. Live Google Sheets API Check
+  try {
+    const targetSheetUrl = spreadsheetId
+      ? `${SHEETS_API}/${encodeURIComponent(spreadsheetId)}?fields=spreadsheetId,properties.title`
+      : `${SHEETS_API}/_jmc_api_probe_check?fields=spreadsheetId`;
+    const sheetRes = await fetch(targetSheetUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (sheetRes.ok || (!spreadsheetId && sheetRes.status === 404)) {
+      sheetsApiOk = true;
+    } else {
+      const errBody = await sheetRes.json().catch(() => ({}));
+      apiErrors.sheets =
+        errBody?.error?.message || `Sheets API verification failed (${sheetRes.status})`;
+    }
+  } catch (err: any) {
+    apiErrors.sheets = err?.message || 'Sheets API network check failed.';
+  }
+
+  // 3. Live Gmail API Check
   try {
     const gmailProfile = await googleFetch<any>(`${GMAIL_API}/profile`, accessToken);
     if (!connectedEmail) {
       connectedEmail = String(gmailProfile?.emailAddress || '').toLowerCase().trim();
     }
-    canSendEmail = Boolean(gmailProfile?.emailAddress);
-  } catch {}
+    gmailApiOk = Boolean(gmailProfile?.emailAddress);
+  } catch (err: any) {
+    apiErrors.gmail = err?.message || 'Gmail API check failed.';
+  }
 
   try {
     const sendAsData = await googleFetch<any>(`${GMAIL_API}/settings/sendAs`, accessToken);
@@ -250,6 +304,10 @@ export async function verifyWorkspaceAccountAndAliases(
     }
   }
 
+  const accountMatchesPrimary = Boolean(connectedEmail && connectedEmail === targetEmail);
+  const canAuthorizeDriveAndSheets = driveApiOk && sheetsApiOk;
+  const canSendEmail = gmailApiOk;
+
   let aliasMode: WorkspaceVerificationResult['aliasMode'] = 'reply_to_fallback';
   let recommendedSendAsEmail = connectedEmail || targetEmail;
   let message = '';
@@ -258,28 +316,46 @@ export async function verifyWorkspaceAccountAndAliases(
     (a) => a.sendAsEmail === targetEmail && a.verificationStatus === 'accepted'
   );
 
-  if (connectedEmail === targetEmail) {
+  if (accountMatchesPrimary) {
     aliasMode = 'direct_account';
     recommendedSendAsEmail = targetEmail;
-    message = `Verified direct Google Workspace account: ${targetEmail} can authorize Drive, Sheets, and send Gmail notifications directly.`;
   } else if (matchingAlias) {
     aliasMode = 'verified_send_as_alias';
     recommendedSendAsEmail = targetEmail;
-    message = `Authorized Google account (${connectedEmail}) has verified Send-As alias for ${targetEmail}. Emails will send as ${targetEmail}.`;
   } else {
     aliasMode = 'reply_to_fallback';
     recommendedSendAsEmail = connectedEmail || targetEmail;
-    message = `Authorized as ${connectedEmail || 'Google account'}. "${targetEmail}" is not yet configured as a verified Gmail Send-As alias on this mailbox, so emails send from ${connectedEmail || 'this account'} with Reply-To: ${targetEmail}.`;
+  }
+
+  const failedApis: string[] = [];
+  if (!driveApiOk) failedApis.push(`Drive (${apiErrors.drive || 'error'})`);
+  if (!sheetsApiOk) failedApis.push(`Sheets (${apiErrors.sheets || 'error'})`);
+  if (!gmailApiOk) failedApis.push(`Gmail (${apiErrors.gmail || 'error'})`);
+
+  if (failedApis.length > 0) {
+    message = `Authorized as ${connectedEmail || 'unknown account'}, but live API test(s) failed: ${failedApis.join('; ')}.`;
+  } else if (accountMatchesPrimary) {
+    message = `Live API tests passed for primary operator account ${targetEmail} (Drive, Sheets, and Gmail verified).`;
+  } else if (matchingAlias) {
+    message = `Live API tests passed for ${connectedEmail} with verified Send-As alias ${targetEmail}. Recommended: authorize directly with ${targetEmail}.`;
+  } else {
+    message = `Authorized Google account (${connectedEmail || 'unknown'}) does not match primary operator account (${targetEmail}). Sign in with ${targetEmail} for direct ownership and sending.`;
   }
 
   return {
     connectedEmail,
     targetAccountEmail: targetEmail,
+    accountMatchesPrimary,
+    driveApiOk,
+    sheetsApiOk,
+    gmailApiOk,
     canAuthorizeDriveAndSheets,
     canSendEmail,
     aliasMode,
     recommendedSendAsEmail,
     availableSendAsAliases,
+    ...(Object.keys(apiErrors).length > 0 ? { apiErrors } : {}),
+    testedAt,
     message,
   };
 }
@@ -571,7 +647,8 @@ export async function provisionWorkspaceAutomation(
   existingConfig?: GoogleWorkspaceConfig,
   actorEmail?: string
 ): Promise<{ config: GoogleWorkspaceConfig; verification: WorkspaceVerificationResult }> {
-  const verification = await verifyWorkspaceAccountAndAliases(accessToken);
+  const sanitizedExisting = sanitizeWorkspaceConfigForCurrentOperator(existingConfig);
+  const verification = await verifyWorkspaceAccountAndAliases(accessToken, sanitizedExisting.spreadsheetId);
 
   const rootFolder = await getOrCreateDriveFolder(accessToken, WORKSPACE_ROOT_FOLDER_NAME);
   const [schoolRegistrations, approvedSchools, rejectedApplications, systemReports, backups] =
@@ -586,7 +663,7 @@ export async function provisionWorkspaceAutomation(
   const { spreadsheetId, spreadsheetUrl } = await ensureDatabaseSpreadsheetAndTabs(
     accessToken,
     rootFolder.id,
-    existingConfig?.spreadsheetId
+    sanitizedExisting.spreadsheetId
   );
 
   await appendActivityLogToSheet(accessToken, spreadsheetId, {
@@ -598,12 +675,14 @@ export async function provisionWorkspaceAutomation(
     status: 'SUCCESS',
   });
 
+  const postProvisionVerify = await verifyWorkspaceAccountAndAliases(accessToken, spreadsheetId);
+
   const config: GoogleWorkspaceConfig = {
     configured: true,
     primaryAccountEmail: PRIMARY_OPERATOR_EMAIL,
-    connectedGoogleEmail: verification.connectedEmail,
-    sendingFromEmail: verification.recommendedSendAsEmail,
-    aliasMode: verification.aliasMode,
+    connectedGoogleEmail: postProvisionVerify.connectedEmail,
+    sendingFromEmail: postProvisionVerify.recommendedSendAsEmail,
+    aliasMode: postProvisionVerify.aliasMode,
     rootFolderId: rootFolder.id,
     rootFolderUrl:
       rootFolder.webViewLink || `https://drive.google.com/drive/folders/${rootFolder.id}`,
@@ -616,11 +695,13 @@ export async function provisionWorkspaceAutomation(
     },
     spreadsheetId,
     spreadsheetUrl,
+    apiVerified: postProvisionVerify.driveApiOk && postProvisionVerify.sheetsApiOk && postProvisionVerify.gmailApiOk,
+    lastTestedAt: postProvisionVerify.testedAt,
     lastSyncedAt: new Date().toISOString(),
   };
 
-  await saveWorkspaceConfig(config, verification.connectedEmail || actorEmail);
-  return { config, verification };
+  await saveWorkspaceConfig(config, postProvisionVerify.connectedEmail || actorEmail);
+  return { config, verification: postProvisionVerify };
 }
 
 // -------------------------------------------------------------
@@ -883,6 +964,61 @@ export async function sendGmailNotification(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ raw }),
+  });
+}
+
+export async function sendTestEmailNotification(
+  accessToken: string,
+  config?: GoogleWorkspaceConfig
+): Promise<{ id: string; sentTo: string; sentAt: string }> {
+  const sentAt = new Date().toISOString();
+  const res = await sendGmailNotification(accessToken, {
+    to: PRIMARY_OPERATOR_EMAIL,
+    fromEmail:
+      config?.aliasMode === 'direct_account' || config?.aliasMode === 'verified_send_as_alias'
+        ? config?.sendingFromEmail || PRIMARY_OPERATOR_EMAIL
+        : undefined,
+    replyToEmail: PRIMARY_OPERATOR_EMAIL,
+    subject: 'JMC Classroom – Live Gmail API Verification Test',
+    bodyText:
+      `This is an automated live Gmail API test dispatched from JMC Classroom Operator Dashboard.\n\n` +
+      `Primary Designated Operator: ${PRIMARY_OPERATOR_EMAIL}\n` +
+      `Tested At: ${sentAt}\n\n` +
+      `Drive, Sheets, and Gmail automation notifications are configured for ${PRIMARY_OPERATOR_EMAIL}.\n`,
+  });
+
+  return {
+    id: res.id,
+    sentTo: PRIMARY_OPERATOR_EMAIL,
+    sentAt,
+  };
+}
+
+export async function sendRegistrationNotificationToOperator(
+  accessToken: string,
+  config: GoogleWorkspaceConfig | undefined,
+  application: SchoolApplication
+): Promise<{ id: string }> {
+  return sendGmailNotification(accessToken, {
+    to: PRIMARY_OPERATOR_EMAIL,
+    fromEmail:
+      config?.aliasMode === 'direct_account' || config?.aliasMode === 'verified_send_as_alias'
+        ? config?.sendingFromEmail || PRIMARY_OPERATOR_EMAIL
+        : undefined,
+    replyToEmail: PRIMARY_OPERATOR_EMAIL,
+    subject: `JMC Classroom – New School Registration: ${application.schoolName} (${application.id})`,
+    bodyText:
+      `A new school registration requires operator review.\n\n` +
+      `Registration ID: ${application.id}\n` +
+      `School Name: ${application.schoolName}\n` +
+      `Official School Email: ${application.administratorEmail}\n` +
+      `Contact Person: ${application.administratorName}\n` +
+      `Phone Number: ${application.contactNumber}\n` +
+      `District: ${application.district}, ${application.province}\n` +
+      `Address: ${application.address}\n` +
+      `School Type: ${application.schoolType}\n` +
+      `Submitted: ${application.submissionDate}\n\n` +
+      `Best Regards,\nJMC Classroom Administration Team\n${PRIMARY_OPERATOR_EMAIL}`,
   });
 }
 

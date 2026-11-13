@@ -343,7 +343,7 @@ const defaultStore: DataStore = {
   applicationDocuments: {},
   workspaceConfig: {
     configured: false,
-    primaryAccountEmail: 'info@jmcinnovator.cc.cd',
+    primaryAccountEmail: 'innovatorsjmc@gmail.com',
   },
 };
 
@@ -445,8 +445,9 @@ app.delete('/api/data/:schoolId/:collection/:id', (req, res) => {
 // -------------------------------------------------------------
 // School Registration & Operator Approval API
 // -------------------------------------------------------------
+const PRIMARY_OPERATOR_EMAIL = 'innovatorsjmc@gmail.com';
 const OPERATOR_EMAILS = [
-  'info@jmcinnovator.cc.cd',
+  'innovatorsjmc@gmail.com',
   'jmc.class2027@gmail.com',
   'operator@jmc.internal',
   'operator@jmc.com',
@@ -512,12 +513,20 @@ app.get('/api/workspace/config', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized: Operator access required.' });
   }
   const store = loadStore();
-  res.json(
-    store.workspaceConfig || {
+  const cfg = store.workspaceConfig;
+  if (
+    !cfg ||
+    String(cfg.primaryAccountEmail || '').toLowerCase().trim() !== PRIMARY_OPERATOR_EMAIL ||
+    String(cfg.connectedGoogleEmail || '').toLowerCase().trim() === 'info@jmcinnovator.cc.cd'
+  ) {
+    store.workspaceConfig = {
       configured: false,
-      primaryAccountEmail: 'info@jmcinnovator.cc.cd',
-    }
-  );
+      primaryAccountEmail: PRIMARY_OPERATOR_EMAIL,
+    };
+    saveStore(store);
+    return res.json(store.workspaceConfig);
+  }
+  res.json(cfg);
 });
 
 app.post('/api/workspace/config', async (req, res) => {
@@ -525,10 +534,22 @@ app.post('/api/workspace/config', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized: Operator access required.' });
   }
   const store = loadStore();
+  const incoming = { ...(req.body || {}) };
+  delete incoming.accessToken;
+  delete incoming.token;
+  delete incoming.refreshToken;
+  delete incoming.idToken;
+
+  const baseConfig =
+    store.workspaceConfig &&
+    String(store.workspaceConfig.primaryAccountEmail || '').toLowerCase().trim() === PRIMARY_OPERATOR_EMAIL
+      ? store.workspaceConfig
+      : {};
+
   store.workspaceConfig = {
-    ...(store.workspaceConfig || {}),
-    ...(req.body || {}),
-    primaryAccountEmail: 'info@jmcinnovator.cc.cd',
+    ...baseConfig,
+    ...incoming,
+    primaryAccountEmail: PRIMARY_OPERATOR_EMAIL,
     updatedAt: new Date().toISOString(),
   };
   saveStore(store);
@@ -720,7 +741,7 @@ app.get('/api/school-applications/:id/document', async (req, res) => {
 app.get('/api/school-applications', async (req, res) => {
   try {
     if (!(await isAuthorizedOperator(req))) {
-      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
+      return res.status(403).json({ error: `Unauthorized: Operator access required (${PRIMARY_OPERATOR_EMAIL}).` });
     }
     const store = loadStore();
     const applications = Object.values(store.schoolApplications || {}).sort((a: any, b: any) =>
@@ -737,7 +758,7 @@ app.get('/api/school-applications', async (req, res) => {
 app.post('/api/school-applications/:id/approve', async (req, res) => {
   try {
     if (!(await isAuthorizedOperator(req))) {
-      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
+      return res.status(403).json({ error: `Unauthorized: Operator access required (${PRIMARY_OPERATOR_EMAIL}).` });
     }
 
     const { id } = req.params;
@@ -774,7 +795,7 @@ app.post('/api/school-applications/:id/approve', async (req, res) => {
     const schoolId = `SCH-${cleanPrefix}-${Date.now().toString(36).toUpperCase()}`;
     const approvalDate = new Date().toISOString();
     const operatorRemarks = req.body.operatorRemarks || 'Approved by Platform Operator';
-    const approvedByEmail = String(req.body.operatorEmail || req.headers['x-actor-email'] || 'info@jmcinnovator.cc.cd').toLowerCase().trim();
+    const approvedByEmail = String(req.body.operatorEmail || req.headers['x-actor-email'] || PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
     const approvedByName = String(req.body.operatorName || approvedByEmail);
 
     // 1. Update Application Record
@@ -856,7 +877,7 @@ app.post('/api/school-applications/:id/approve', async (req, res) => {
 app.post('/api/school-applications/:id/reject', async (req, res) => {
   try {
     if (!(await isAuthorizedOperator(req))) {
-      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
+      return res.status(403).json({ error: `Unauthorized: Operator access required (${PRIMARY_OPERATOR_EMAIL}).` });
     }
 
     const { id } = req.params;
@@ -879,6 +900,8 @@ app.post('/api/school-applications/:id/reject', async (req, res) => {
     }
 
     const operatorRemarks = req.body.operatorRemarks || 'Application did not meet verification criteria.';
+    const rejectedByEmail = String(req.body.operatorEmail || req.headers['x-actor-email'] || PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
+    const rejectedByName = String(req.body.operatorName || rejectedByEmail);
     const rejectionDate = new Date().toISOString();
 
     appRecord.status = 'REJECTED';
@@ -898,6 +921,8 @@ app.post('/api/school-applications/:id/reject', async (req, res) => {
             action: 'rejectApplication',
             applicationId: id,
             operatorRemarks,
+            operatorEmail: rejectedByEmail,
+            operatorName: rejectedByName,
           }),
         });
       } catch (scriptErr) {

@@ -6,11 +6,11 @@
  * ============================================================================
  *
  * PRIMARY OPERATOR & WORKSPACE ACCOUNT:
- *   info@jmcinnovator.cc.cd
+ *   innovatorsjmc@gmail.com
  *
  * SETUP INSTRUCTIONS:
- * 1. Sign in to Google as the account that owns Drive/Sheets and can send as
- *    `info@jmcinnovator.cc.cd` (either directly or as a verified Send-As alias).
+ * 1. Sign in to Google as `innovatorsjmc@gmail.com` (or an account that owns
+ *    Drive/Sheets and can send as `innovatorsjmc@gmail.com` as a verified Send-As alias).
  * 2. Create a new Google Apps Script project at https://script.google.com
  *    (or from a bound Google Sheet: Extensions > Apps Script).
  * 3. Paste this entire file into Code.gs.
@@ -18,7 +18,7 @@
  *    Services (+) > Gmail API (identifier: Gmail). (Optional — GmailApp fallback
  *    also works automatically.)
  * 5. Run `setupAutomationWorkspace()` once from the Apps Script Editor to:
- *      - Verify account authorization & sending alias for info@jmcinnovator.cc.cd
+ *      - Verify account authorization & sending alias for innovatorsjmc@gmail.com
  *      - Create Drive folder `JMC CLASSROOM AUTOMATION` & all 5 subfolders
  *      - Create Spreadsheet `JMC Classroom – School Registration Database`
  *        with all 4 sheets (`School Registrations`, `Approved Schools`,
@@ -33,9 +33,9 @@
 // CONFIGURATION
 // ============================================================================
 var CONFIG = {
-  PRIMARY_OPERATOR_EMAIL: 'info@jmcinnovator.cc.cd',
+  PRIMARY_OPERATOR_EMAIL: 'innovatorsjmc@gmail.com',
   AUTHORIZED_OPERATORS: [
-    'info@jmcinnovator.cc.cd',
+    'innovatorsjmc@gmail.com',
     'jmc.class2027@gmail.com'
   ],
   ROOT_FOLDER_NAME: 'JMC CLASSROOM AUTOMATION',
@@ -155,7 +155,7 @@ function setupAutomationWorkspace() {
 }
 
 /**
- * Verifies the executing Google account and checks whether info@jmcinnovator.cc.cd
+ * Verifies the executing Google account and checks whether innovatorsjmc@gmail.com
  * is the primary account or a configured Gmail/Domain sending alias.
  */
 function verifyAuthorizedAccount_() {
@@ -188,6 +188,7 @@ function verifyAuthorizedAccount_() {
   return {
     effectiveEmail: effectiveEmail,
     targetEmail: target,
+    accountMatchesPrimary: effectiveEmail === target,
     aliases: aliases,
     mode: mode,
     sendFrom: sendFrom,
@@ -198,6 +199,17 @@ function verifyAuthorizedAccount_() {
 // ============================================================================
 // 1. GOOGLE DRIVE AUTOMATION (DEDUPLICATED)
 // ============================================================================
+function syncOperatorScriptProperties_() {
+  var props = PropertiesService.getScriptProperties();
+  var storedOp = String(props.getProperty('JMC_OPERATOR_EMAIL') || '').toLowerCase().trim();
+  if (storedOp && storedOp !== CONFIG.PRIMARY_OPERATOR_EMAIL.toLowerCase()) {
+    props.deleteProperty('JMC_ROOT_FOLDER_ID');
+    props.deleteProperty('JMC_SPREADSHEET_ID');
+  }
+  props.setProperty('JMC_OPERATOR_EMAIL', CONFIG.PRIMARY_OPERATOR_EMAIL.toLowerCase());
+  return props;
+}
+
 function getOrCreateFolder_(parentFolder, folderName) {
   var iterator = parentFolder
     ? parentFolder.getFoldersByName(folderName)
@@ -213,7 +225,7 @@ function getOrCreateFolder_(parentFolder, folderName) {
 }
 
 function ensureAutomationFolders_() {
-  var props = PropertiesService.getScriptProperties();
+  var props = syncOperatorScriptProperties_();
   var rootFolder = null;
   var savedRootId = props.getProperty('JMC_ROOT_FOLDER_ID');
 
@@ -376,8 +388,8 @@ function doGet(e) {
     if (action === 'getApplications') {
       return handleGetApplications_(params);
     }
-    if (action === 'verifyAccount') {
-      return createJsonResponse_({ success: true, account: verifyAuthorizedAccount_() });
+    if (action === 'verifyAccount' || action === 'testConnections') {
+      return createJsonResponse_(runAppsScriptConnectionTest_());
     }
     if (action === 'setupWorkspace') {
       return createJsonResponse_(setupAutomationWorkspace());
@@ -395,6 +407,47 @@ function doGet(e) {
   }
 }
 
+function runAppsScriptConnectionTest_() {
+  var account = verifyAuthorizedAccount_();
+  var driveOk = false;
+  var sheetsOk = false;
+  var driveError = '';
+  var sheetsError = '';
+
+  try {
+    DriveApp.getRootFolder().getName();
+    driveOk = true;
+  } catch (e) {
+    driveError = e.message || String(e);
+  }
+
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var sheetId = props.getProperty('JMC_SPREADSHEET_ID');
+    if (sheetId) {
+      SpreadsheetApp.openById(sheetId).getName();
+    } else {
+      DriveApp.getFilesByName(CONFIG.SPREADSHEET_NAME).hasNext();
+    }
+    sheetsOk = true;
+  } catch (e) {
+    sheetsError = e.message || String(e);
+  }
+
+  return {
+    success: driveOk && sheetsOk && account.canSendEmail,
+    account: account,
+    driveApiOk: driveOk,
+    sheetsApiOk: sheetsOk,
+    gmailApiOk: account.canSendEmail,
+    errors: {
+      drive: driveError,
+      sheets: sheetsError
+    },
+    testedAt: new Date().toISOString()
+  };
+}
+
 function doPost(e) {
   try {
     var rawBody = e && e.postData && e.postData.contents ? e.postData.contents : '{}';
@@ -410,6 +463,8 @@ function doPost(e) {
     switch (action) {
       case 'setupWorkspace':
         return createJsonResponse_(setupAutomationWorkspace());
+      case 'testConnections':
+        return createJsonResponse_(runAppsScriptConnectionTest_());
       case 'register':
       case 'submitApplication':
         return handleRegisterSchool_(data);
@@ -518,6 +573,32 @@ function handleRegisterSchool_(data) {
     'PENDING'
   );
 
+  // Send school registration notification email to designated primary operator (innovatorsjmc@gmail.com)
+  var operatorNotificationSent = false;
+  try {
+    sendAutomationEmail_(
+      CONFIG.PRIMARY_OPERATOR_EMAIL,
+      'JMC Classroom – New School Registration: ' + schoolName + ' (' + registrationId + ')',
+      'A new school registration has been submitted on JMC Classroom.\n\n' +
+        'Registration ID: ' + registrationId + '\n' +
+        'School Name: ' + schoolName + '\n' +
+        'Official School Email: ' + schoolEmail + '\n' +
+        'Contact Person: ' + contactPerson + '\n' +
+        'Phone Number: ' + phone + '\n' +
+        'District: ' + district + '\n' +
+        'Address: ' + address + '\n' +
+        'School Type: ' + schoolType + '\n' +
+        'Submitted Date: ' + submittedDate + '\n' +
+        (additionalInfo ? 'Additional Info: ' + additionalInfo + '\n' : '') +
+        (docResult ? 'Supporting Document (Drive): ' + docResult.fileUrl + '\n' : '') +
+        '\nReview this application in the Operator Dashboard.\n\n' +
+        'JMC Classroom Automation System\n' + CONFIG.PRIMARY_OPERATOR_EMAIL
+    );
+    operatorNotificationSent = true;
+  } catch (notifyErr) {
+    Logger.log('Operator notification email notice: ' + notifyErr.message);
+  }
+
   return createJsonResponse_({
     success: true,
     message: 'Your school registration has been submitted successfully. Our administration team will review your application.',
@@ -525,7 +606,8 @@ function handleRegisterSchool_(data) {
     status: 'PENDING',
     submissionDate: submittedDate,
     driveFileId: docResult ? docResult.fileId : '',
-    driveFileUrl: docResult ? docResult.fileUrl : ''
+    driveFileUrl: docResult ? docResult.fileUrl : '',
+    operatorNotificationSent: operatorNotificationSent
   });
 }
 

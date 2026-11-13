@@ -45,7 +45,10 @@ export const WORKSPACE_SCOPES = [
 
 export const workspaceGoogleProvider = new GoogleAuthProvider();
 WORKSPACE_SCOPES.forEach((scope) => workspaceGoogleProvider.addScope(scope));
-workspaceGoogleProvider.setCustomParameters({ prompt: 'consent select_account' });
+workspaceGoogleProvider.setCustomParameters({
+  prompt: 'consent select_account',
+  login_hint: 'innovatorsjmc@gmail.com',
+});
 
 // Strict in-memory cache for Google Workspace OAuth access token (never localStorage/sessionStorage)
 let cachedWorkspaceAccessToken: string | null = null;
@@ -160,9 +163,9 @@ export async function checkDatabaseConnection(): Promise<{
   }
 }
 
-export const PRIMARY_OPERATOR_EMAIL = 'info@jmcinnovator.cc.cd';
+export const PRIMARY_OPERATOR_EMAIL = 'innovatorsjmc@gmail.com';
 export const OPERATOR_EMAILS = [
-  'info@jmcinnovator.cc.cd',
+  'innovatorsjmc@gmail.com',
   'jmc.class2027@gmail.com',
   'operator@jmc.internal',
   'operator@jmc.com',
