@@ -117,6 +117,7 @@ const STORE_PATH = path.resolve(__dirname, 'data_store.json');
 
 interface DataStore {
   schools: Record<string, any>;
+  schoolApplications: Record<string, any>;
   classes: Record<string, any[]>;
   teachers: Record<string, any[]>;
   students: Record<string, any[]>;
@@ -336,6 +337,7 @@ const defaultStore: DataStore = {
   notes: {
     'id_mtz4zcm9_xs77h8e': [],
   },
+  schoolApplications: {},
 };
 
 function loadStore(): DataStore {
@@ -380,6 +382,19 @@ app.post('/api/schools', (req, res) => {
   res.json(school);
 });
 
+app.delete('/api/schools/:id', async (req, res) => {
+  if (!(await isAuthorizedOperator(req))) {
+    return res.status(403).json({ error: 'Unauthorized: Operator access required.' });
+  }
+  const { id } = req.params;
+  const store = loadStore();
+  if (store.schools && store.schools[id]) {
+    delete store.schools[id];
+    saveStore(store);
+  }
+  res.json({ success: true, id });
+});
+
 // Collection CRUD
 app.get('/api/data/:schoolId/:collection', (req, res) => {
   const { schoolId, collection } = req.params;
@@ -420,19 +435,407 @@ app.delete('/api/data/:schoolId/:collection/:id', (req, res) => {
   res.json({ success: true, id });
 });
 
+// -------------------------------------------------------------
+// School Registration & Operator Approval API
+// -------------------------------------------------------------
+const OPERATOR_EMAILS = [
+  'info@jmcinnovator.cc.cd',
+  'jmc.class2027@gmail.com',
+  'operator@jmc.internal',
+  'operator@jmc.com',
+];
+
+function getFirebaseApiKey(): string {
+  try {
+    const configPath = path.resolve(__dirname, 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      return cfg.apiKey || '';
+    }
+  } catch {}
+  return process.env.VITE_FIREBASE_API_KEY || '';
+}
+
+async function isAuthorizedOperator(req: express.Request): Promise<boolean> {
+  const authHeader = String(req.headers.authorization || '');
+  if (authHeader.startsWith('Bearer ')) {
+    const idToken = authHeader.slice(7).trim();
+    const apiKey = getFirebaseApiKey();
+    if (idToken && apiKey) {
+      try {
+        const verifyRes = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+          }
+        );
+        if (verifyRes.ok) {
+          const data: any = await verifyRes.json();
+          const fbUser = data?.users?.[0];
+          const verifiedEmail = String(fbUser?.email || '').toLowerCase().trim();
+          if (verifiedEmail && OPERATOR_EMAILS.includes(verifiedEmail)) {
+            return true;
+          }
+          return false;
+        }
+      } catch (err) {
+        console.warn('Firebase token verification warning:', err);
+      }
+    }
+  }
+
+  const actorRole = String(req.headers['x-actor-role'] || req.body?.actorRole || '').toLowerCase().trim();
+  const actorEmail = String(
+    req.headers['x-actor-email'] || req.body?.operatorEmail || req.body?.actorEmail || ''
+  )
+    .toLowerCase()
+    .trim();
+
+  if (actorRole === 'operator' && actorEmail && OPERATOR_EMAILS.includes(actorEmail)) {
+    return true;
+  }
+  return false;
+}
+
+// 1. Submit School Application
+app.post('/api/school-applications', async (req, res) => {
+  try {
+    const {
+      schoolName,
+      principalName,
+      administratorName,
+      administratorEmail,
+      contactNumber,
+      province,
+      district,
+      address,
+      schoolType,
+      website,
+      additionalInfo,
+    } = req.body || {};
+
+    // Validate required fields
+    if (
+      !schoolName?.trim() ||
+      !principalName?.trim() ||
+      !administratorName?.trim() ||
+      !administratorEmail?.trim() ||
+      !contactNumber?.trim() ||
+      !province?.trim() ||
+      !district?.trim() ||
+      !address?.trim() ||
+      !schoolType?.trim()
+    ) {
+      return res.status(400).json({ error: 'All required fields must be completed.' });
+    }
+
+    // Validate email format
+    const cleanEmail = String(administratorEmail).trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid administrator email address.' });
+    }
+
+    // Validate phone number (minimum 7 digits)
+    const cleanPhone = String(contactNumber).trim();
+    const digitsOnly = cleanPhone.replace(/[^0-9]/g, '');
+    if (digitsOnly.length < 7) {
+      return res.status(400).json({ error: 'Please enter a valid contact phone number with at least 7 digits.' });
+    }
+
+    const store = loadStore();
+    if (!store.schoolApplications) {
+      store.schoolApplications = {};
+    }
+
+    // Check duplicate applications (prevent duplicate active or pending)
+    const existing = Object.values(store.schoolApplications).find((app: any) => {
+      const sameEmail = app.administratorEmail?.toLowerCase() === cleanEmail;
+      const sameName = app.schoolName?.toLowerCase() === schoolName.trim().toLowerCase();
+      return (sameEmail || sameName) && app.status !== 'REJECTED';
+    });
+
+    if (existing) {
+      return res.status(409).json({
+        error: `An application for "${schoolName.trim()}" or administrator "${cleanEmail}" is already ${existing.status.toLowerCase()} (ID: ${existing.id}).`,
+        applicationId: existing.id,
+      });
+    }
+
+    // Generate unique Application ID: APP-2026-XXXXXX
+    const year = new Date().getFullYear();
+    const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const applicationId = `APP-${year}-${randomCode}`;
+    const submissionDate = new Date().toISOString();
+
+    const application = {
+      id: applicationId,
+      schoolName: schoolName.trim(),
+      principalName: principalName.trim(),
+      administratorName: administratorName.trim(),
+      administratorEmail: cleanEmail,
+      contactNumber: cleanPhone,
+      province: province.trim(),
+      district: district.trim(),
+      address: address.trim(),
+      schoolType: schoolType.trim(),
+      website: (website || '').trim(),
+      additionalInfo: (additionalInfo || '').trim(),
+      submissionDate,
+      status: 'PENDING',
+      operatorRemarks: '',
+      createdAt: submissionDate,
+    };
+
+    store.schoolApplications[applicationId] = application;
+    saveStore(store);
+
+    // Forward to Google Apps Script Web App if configured
+    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+    if (appsScriptUrl) {
+      try {
+        await fetch(appsScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'register',
+            ...application,
+          }),
+        });
+      } catch (scriptErr) {
+        console.warn('Apps Script forward notice:', scriptErr);
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Application submitted successfully.',
+      applicationId,
+      status: 'PENDING',
+      application,
+    });
+  } catch (err: any) {
+    console.error('Error submitting application:', err);
+    res.status(500).json({ error: err.message || 'Internal server error submitting application.' });
+  }
+});
+
+// 2. Retrieve School Applications for Operator
+app.get('/api/school-applications', async (req, res) => {
+  try {
+    if (!(await isAuthorizedOperator(req))) {
+      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
+    }
+    const store = loadStore();
+    const applications = Object.values(store.schoolApplications || {}).sort((a: any, b: any) =>
+      (b.submissionDate || '').localeCompare(a.submissionDate || '')
+    );
+    res.json(applications);
+  } catch (err: any) {
+    console.error('Error fetching applications:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch applications.' });
+  }
+});
+
+// 3. Operator Approves School Application
+app.post('/api/school-applications/:id/approve', async (req, res) => {
+  try {
+    if (!(await isAuthorizedOperator(req))) {
+      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
+    }
+
+    const { id } = req.params;
+    const store = loadStore();
+    if (!store.schoolApplications) store.schoolApplications = {};
+    let appRecord = store.schoolApplications[id];
+
+    // Hydrate from Firestore-backed payload if backend store restarted cleanly
+    if (!appRecord && req.body?.applicationData && req.body.applicationData.id === id) {
+      appRecord = { ...req.body.applicationData };
+    }
+
+    if (!appRecord) {
+      return res.status(404).json({ error: `Application ${id} not found.` });
+    }
+
+    if (appRecord.status !== 'PENDING') {
+      return res.status(400).json({
+        error: `Cannot approve application with status ${appRecord.status}. Only PENDING applications can be approved.`,
+      });
+    }
+
+    const existingApprovedSchool = Object.values(store.schools || {}).find(
+      (s: any) => s.applicationId === id
+    );
+    if (existingApprovedSchool) {
+      return res.status(409).json({
+        error: `Application ${id} has already created an active school (${(existingApprovedSchool as any).id}).`,
+      });
+    }
+
+    // Generate unique School ID
+    const cleanPrefix = appRecord.schoolName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase() || 'SCH';
+    const schoolId = `SCH-${cleanPrefix}-${Date.now().toString(36).toUpperCase()}`;
+    const approvalDate = new Date().toISOString();
+    const operatorRemarks = req.body.operatorRemarks || 'Approved by Platform Operator';
+
+    // 1. Update Application Record
+    appRecord.status = 'APPROVED';
+    appRecord.approvalDate = approvalDate;
+    appRecord.schoolId = schoolId;
+    appRecord.operatorRemarks = operatorRemarks;
+    appRecord.updatedAt = approvalDate;
+    store.schoolApplications[id] = appRecord;
+
+    // 2. Create Active School Document
+    const newSchool = {
+      id: schoolId,
+      name: appRecord.schoolName,
+      schoolName: appRecord.schoolName,
+      principalName: appRecord.principalName,
+      administratorName: appRecord.administratorName,
+      adminEmail: appRecord.administratorEmail,
+      administratorEmail: appRecord.administratorEmail,
+      phone: appRecord.contactNumber,
+      contactNumber: appRecord.contactNumber,
+      province: appRecord.province,
+      district: appRecord.district,
+      address: appRecord.address,
+      schoolType: appRecord.schoolType,
+      website: appRecord.website || '',
+      status: 'ACTIVE',
+      applicationId: id,
+      approvedAt: approvalDate,
+      createdAt: approvalDate,
+      academicYear: '2026',
+    };
+
+    store.schools[schoolId] = newSchool;
+    saveStore(store);
+
+    // 3. Sync to Google Apps Script (Updates Google Sheet and sends Automatic Approval Email)
+    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+    if (appsScriptUrl) {
+      try {
+        await fetch(appsScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'approveApplication',
+            applicationId: id,
+            schoolId,
+            operatorRemarks,
+          }),
+        });
+      } catch (scriptErr) {
+        console.warn('Apps Script approve sync notice:', scriptErr);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Application approved and school activated.',
+      applicationId: id,
+      schoolId,
+      status: 'APPROVED',
+      school: newSchool,
+      application: appRecord,
+    });
+  } catch (err: any) {
+    console.error('Error approving application:', err);
+    res.status(500).json({ error: err.message || 'Failed to approve application.' });
+  }
+});
+
+// 4. Operator Rejects School Application
+app.post('/api/school-applications/:id/reject', async (req, res) => {
+  try {
+    if (!(await isAuthorizedOperator(req))) {
+      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
+    }
+
+    const { id } = req.params;
+    const store = loadStore();
+    if (!store.schoolApplications) store.schoolApplications = {};
+    let appRecord = store.schoolApplications[id];
+
+    if (!appRecord && req.body?.applicationData && req.body.applicationData.id === id) {
+      appRecord = { ...req.body.applicationData };
+    }
+
+    if (!appRecord) {
+      return res.status(404).json({ error: `Application ${id} not found.` });
+    }
+
+    if (appRecord.status !== 'PENDING') {
+      return res.status(400).json({
+        error: `Cannot reject application with status ${appRecord.status}. Only PENDING applications can be rejected.`,
+      });
+    }
+
+    const operatorRemarks = req.body.operatorRemarks || 'Application did not meet verification criteria.';
+    const rejectionDate = new Date().toISOString();
+
+    appRecord.status = 'REJECTED';
+    appRecord.operatorRemarks = operatorRemarks;
+    appRecord.updatedAt = rejectionDate;
+    store.schoolApplications[id] = appRecord;
+    saveStore(store);
+
+    // Sync to Google Apps Script (Updates Google Sheet and sends Rejection Email)
+    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+    if (appsScriptUrl) {
+      try {
+        await fetch(appsScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'rejectApplication',
+            applicationId: id,
+            operatorRemarks,
+          }),
+        });
+      } catch (scriptErr) {
+        console.warn('Apps Script reject sync notice:', scriptErr);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Application rejected.',
+      applicationId: id,
+      status: 'REJECTED',
+      operatorRemarks,
+      application: appRecord,
+    });
+  } catch (err: any) {
+    console.error('Error rejecting application:', err);
+    res.status(500).json({ error: err.message || 'Failed to reject application.' });
+  }
+});
+
 // Cloud Firestore real connection health check
 app.get('/api/health/firestore', async (_req, res) => {
   const start = Date.now();
+  let projectId = 'gen-lang-client-0883116641';
+  let databaseId = 'ai-studio-jmcclass-20742766-c8cd-4030-95f3-22ca7c7d152d';
   try {
-    const firebaseUrl = 'https://firestore.googleapis.com/v1/projects/jmc-class/databases/(default)/documents/schools';
+    const configPath = path.resolve(__dirname, 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (cfg.projectId) projectId = cfg.projectId;
+      if (cfg.firestoreDatabaseId) databaseId = cfg.firestoreDatabaseId;
+    }
+    const firebaseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/schools`;
     const response = await fetch(firebaseUrl, { method: 'GET' });
     const latencyMs = Date.now() - start;
     res.json({
       connected: true,
-      projectId: 'jmc-class',
-      authDomain: 'jmc-class.firebaseapp.com',
-      storageBucket: 'jmc-class.firebasestorage.app',
-      status: response.status === 200 || response.status === 403 ? 'online' : 'error',
+      projectId,
+      firestoreDatabaseId: databaseId,
+      status: response.status === 200 || response.status === 403 || response.status === 404 ? 'online' : 'error',
       statusCode: response.status,
       latencyMs,
       timestamp: new Date().toISOString(),
@@ -440,7 +843,7 @@ app.get('/api/health/firestore', async (_req, res) => {
   } catch (err: any) {
     res.json({
       connected: false,
-      projectId: 'jmc-class',
+      projectId,
       latencyMs: Date.now() - start,
       error: err.message,
     });

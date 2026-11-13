@@ -169,6 +169,32 @@
         "timestamp": { "type": "string" }
       },
       "required": ["id", "schoolId", "actorUid", "action"]
+    },
+    "SchoolApplication": {
+      "title": "SchoolApplication",
+      "description": "School registration applications submitted by visitors pending operator review",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "principalName": { "type": "string" },
+        "administratorName": { "type": "string" },
+        "administratorEmail": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "province": { "type": "string" },
+        "district": { "type": "string" },
+        "address": { "type": "string" },
+        "schoolType": { "type": "string" },
+        "website": { "type": "string" },
+        "additionalInfo": { "type": "string" },
+        "submissionDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "operatorRemarks": { "type": "string" },
+        "approvalDate": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "schoolName", "principalName", "administratorName", "administratorEmail", "contactNumber", "province", "district", "address", "schoolType", "status"]
     }
   },
   "firestore": {
@@ -211,6 +237,10 @@
     "/schools/{schoolId}/auditLogs/{logId}": {
       "schema": "AuditLog",
       "description": "Immutable security logs of administrative actions"
+    },
+    "/school_applications/{applicationId}": {
+      "schema": "SchoolApplication",
+      "description": "School registration applications submitted by visitors"
     }
   }
 }

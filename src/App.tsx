@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import {
   auth,
@@ -7,6 +7,7 @@ import {
   signInAsRole,
   logOut,
   bootstrapUserProfile,
+  PRIMARY_OPERATOR_EMAIL,
 } from './lib/firebase';
 import {
   UserProfile,
@@ -39,6 +40,8 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const manualAuthInProgressRef = useRef(false);
 
   // Firestore Data State
   const [schools, setSchools] = useState<School[]>([]);
@@ -119,36 +122,43 @@ export default function App() {
     }
   }, [currentSchool, loadSchoolData, userProfile?.schoolId]);
 
+  const initializeSessionData = useCallback(async (profile: UserProfile) => {
+    setUserProfile(profile);
+    const allSchools = await firestoreService.fetchSchools().catch(() => []);
+    setSchools(allSchools || []);
+
+    if (profile.schoolId) {
+      const found = allSchools.find((s) => s.id === profile.schoolId);
+      if (found) {
+        setCurrentSchool(found);
+        await loadSchoolData(found.id);
+      } else if (allSchools.length > 0) {
+        setCurrentSchool(allSchools[0]);
+        await loadSchoolData(allSchools[0].id);
+      }
+    } else if (allSchools.length > 0) {
+      setCurrentSchool(allSchools[0]);
+      await loadSchoolData(allSchools[0].id);
+    }
+  }, [loadSchoolData]);
+
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFbUser(user);
       if (user) {
+        if (manualAuthInProgressRef.current) {
+          setAuthLoading(false);
+          return;
+        }
         try {
           const profile = await bootstrapUserProfile(user);
-          setUserProfile(profile);
-
-          const allSchools = await firestoreService.fetchSchools().catch(() => []);
-          setSchools(allSchools || []);
-
-          if (profile.schoolId) {
-            const found = allSchools.find((s) => s.id === profile.schoolId);
-            if (found) {
-              setCurrentSchool(found);
-              await loadSchoolData(found.id);
-            } else if (allSchools.length > 0) {
-              setCurrentSchool(allSchools[0]);
-              await loadSchoolData(allSchools[0].id);
-            }
-          } else if (allSchools.length > 0) {
-            setCurrentSchool(allSchools[0]);
-            await loadSchoolData(allSchools[0].id);
-          }
+          await initializeSessionData(profile);
         } catch (err: any) {
           console.error('Session bootstrap failed:', err);
           setErrorMessage(err.message || 'Failed to initialize session profile.');
         }
-      } else {
+      } else if (!manualAuthInProgressRef.current) {
         setUserProfile(null);
         setCurrentSchool(null);
         setClasses([]);
@@ -165,23 +175,21 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [loadSchoolData]);
+  }, [initializeSessionData]);
 
   // Handlers
   const handleGoogleSignIn = async (preferredRole?: UserRole) => {
     setActionLoading(true);
     setErrorMessage(null);
+    manualAuthInProgressRef.current = true;
     try {
-      const { user, profile } = await signInWithGoogle();
-      // If user is brand new and selected a preferred role
-      if (profile.role === 'student' && preferredRole && preferredRole !== 'student' && preferredRole !== 'operator') {
-        profile.role = preferredRole;
-        setUserProfile(profile);
-      }
+      const { profile } = await signInWithGoogle(preferredRole);
+      await initializeSessionData(profile);
     } catch (err: any) {
       console.error('Sign-in error:', err);
       setErrorMessage(err.message || 'Could not complete Google Sign-in.');
     } finally {
+      manualAuthInProgressRef.current = false;
       setActionLoading(false);
     }
   };
@@ -189,30 +197,59 @@ export default function App() {
   const handleSignInWithRole = async (role: UserRole) => {
     setActionLoading(true);
     setErrorMessage(null);
+    manualAuthInProgressRef.current = true;
     try {
       const { profile } = await signInAsRole(role);
-      setUserProfile(profile);
-      if (schools.length > 0 && !currentSchool) {
-        setCurrentSchool(schools[0]);
-        await loadSchoolData(schools[0].id);
-      }
+      await initializeSessionData(profile);
     } catch (err: any) {
       console.error('Role sign-in error:', err);
-      // Fallback local session if auth restricted
+      const errMsg = err?.message || '';
+      if (errMsg.startsWith('Access Denied:')) {
+        setErrorMessage(errMsg);
+        return;
+      }
+
+      // Local fallback session when Firebase Email/Password auth is disabled
+      const emailByRole: Record<UserRole, string> = {
+        operator: PRIMARY_OPERATOR_EMAIL,
+        school: 'admin@jmc.school',
+        teacher: 'teacher.science@jmc.school',
+        student: 'kasun.student@jmc.school',
+        parent: 'sunil.parent@jmc.school',
+        supervisor: 'supervisor@jmc.school',
+      };
+      const displayNameByRole: Record<UserRole, string> = {
+        operator: 'JMC Platform Operator',
+        school: 'School Administrator',
+        teacher: 'Teacher User',
+        student: 'Student User',
+        parent: 'Parent User',
+        supervisor: 'Supervisor User',
+      };
+
+      const allSchools = schools.length > 0 ? schools : await firestoreService.fetchSchools().catch(() => []);
+      if (allSchools.length > 0 && schools.length === 0) {
+        setSchools(allSchools);
+      }
+
       const fallbackProfile: UserProfile = {
         uid: 'user_' + role + '_' + Date.now().toString(36),
-        displayName: role === 'school' ? 'School Administrator' : role.charAt(0).toUpperCase() + role.slice(1) + ' User',
-        email: `${role}@jmc.school`,
+        displayName: displayNameByRole[role] || 'User',
+        email: emailByRole[role] || `${role}@jmc.school`,
         role,
-        schoolId: schools[0]?.id || 'id_mtz4zcm9_xs77h8e',
+        ...(role === 'operator' ? {} : { schoolId: allSchools[0]?.id || 'id_mtz4zcm9_xs77h8e' }),
         status: 'active',
       };
       setUserProfile(fallbackProfile);
-      if (schools.length > 0 && !currentSchool) {
-        setCurrentSchool(schools[0]);
-        await loadSchoolData(schools[0].id);
+      if (allSchools.length > 0) {
+        const target = fallbackProfile.schoolId
+          ? allSchools.find((s) => s.id === fallbackProfile.schoolId) || allSchools[0]
+          : allSchools[0];
+        setCurrentSchool(target);
+        await loadSchoolData(target.id);
       }
     } finally {
+      manualAuthInProgressRef.current = false;
       setActionLoading(false);
     }
   };
@@ -220,17 +257,15 @@ export default function App() {
   const handleSignInWithEmail = async (email: string, pass: string, preferredRole?: UserRole) => {
     setActionLoading(true);
     setErrorMessage(null);
+    manualAuthInProgressRef.current = true;
     try {
       const { profile } = await signInWithEmail(email, pass, preferredRole);
-      setUserProfile(profile);
-      if (schools.length > 0 && !currentSchool) {
-        setCurrentSchool(schools[0]);
-        await loadSchoolData(schools[0].id);
-      }
+      await initializeSessionData(profile);
     } catch (err: any) {
       console.error('Email sign-in error:', err);
       setErrorMessage(err.message || 'Email authentication failed.');
     } finally {
+      manualAuthInProgressRef.current = false;
       setActionLoading(false);
     }
   };
@@ -239,11 +274,14 @@ export default function App() {
     await logOut();
     setUserProfile(null);
     setFbUser(null);
+    setErrorMessage(null);
+    setNoticeMessage(null);
   };
 
   const handleJoinByCode = async (code: string, name: string) => {
     setActionLoading(true);
     setErrorMessage(null);
+    setNoticeMessage(null);
     try {
       const result = await firestoreService.joinClassByCode(
         code,
@@ -261,7 +299,7 @@ export default function App() {
         await loadSchoolData(targetSchool.id);
       }
 
-      alert(`Successfully enrolled in ${result.classroom.name} at ${result.schoolId}!`);
+      setNoticeMessage(`Successfully enrolled in ${result.classroom.name}!`);
     } catch (err: any) {
       setErrorMessage(err.message || 'Could not join classroom.');
     } finally {
@@ -316,10 +354,16 @@ export default function App() {
 
   const handleDeleteSchoolByOperator = async (schoolId: string) => {
     if (!userProfile) return;
-    await firestoreService.deleteSchool(schoolId, userProfile.uid, userProfile.displayName);
-    setSchools((prev) => prev.filter((s) => s.id !== schoolId));
+    await firestoreService.deleteSchool(
+      schoolId,
+      userProfile.uid,
+      userProfile.displayName,
+      userProfile.email
+    );
+    const remaining = schools.filter((s) => s.id !== schoolId);
+    setSchools(remaining);
     if (currentSchool?.id === schoolId) {
-      setCurrentSchool(schools.find((s) => s.id !== schoolId) || null);
+      setCurrentSchool(remaining[0] || null);
     }
   };
 
@@ -573,6 +617,18 @@ export default function App() {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {noticeMessage && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between gap-2">
+            <span>{noticeMessage}</span>
+            <button
+              type="button"
+              onClick={() => setNoticeMessage(null)}
+              className="text-emerald-200 hover:text-white font-bold px-2"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {userProfile.role === 'operator' ? (
           <OperatorDashboard
             user={userProfile}
@@ -584,6 +640,7 @@ export default function App() {
             }}
             onCreateSchool={handleCreateSchoolByOperator}
             onDeleteSchool={handleDeleteSchoolByOperator}
+            onRefreshSchools={refreshAll}
             auditLogs={auditLogs}
             loading={actionLoading}
           />

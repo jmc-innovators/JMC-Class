@@ -1,0 +1,291 @@
+{
+  "schools": {
+    "id_mtz4zcm9_xs77h8e": {
+      "id": "id_mtz4zcm9_xs77h8e",
+      "name": "J/Mahajana college",
+      "adminEmail": "sivaneswaran828@gmail.com",
+      "email": "sivaneswaran828@gmail.com",
+      "principalName": "Mr.Pushparathanam",
+      "district": "Jaffna",
+      "province": "Northern",
+      "address": "Ampaani, telipalai",
+      "phone": "0763917067",
+      "accessCode": "T9JWYW",
+      "schoolType": "National",
+      "academicYear": "2026",
+      "status": "active",
+      "createdAt": "2026-11-12T14:49:55.988Z"
+    },
+    "SCH-STJO-MWDO02NJ": {
+      "id": "SCH-STJO-MWDO02NJ",
+      "name": "St. Johns College, Jaffna",
+      "schoolName": "St. Johns College, Jaffna",
+      "principalName": "Rev. V. Pathmathayalan",
+      "administratorName": "Pathmathayalan V.",
+      "adminEmail": "admin.stjohns@jmc.school",
+      "administratorEmail": "admin.stjohns@jmc.school",
+      "phone": "021 222 2011",
+      "contactNumber": "021 222 2011",
+      "province": "Northern Province",
+      "district": "Jaffna",
+      "address": "Chundikuli, Jaffna",
+      "schoolType": "National School (Type 1AB)",
+      "website": "https://stjohns.lk",
+      "status": "ACTIVE",
+      "applicationId": "APP-2026-JXUW07",
+      "approvedAt": "2026-11-12T14:50:19.375Z",
+      "createdAt": "2026-11-12T14:50:19.375Z",
+      "academicYear": "2026"
+    }
+  },
+  "classes": {
+    "id_mtz4zcm9_xs77h8e": [
+      {
+        "id": "cls_grade9a",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "name": "Grade 9A — Physical Sciences & Maths",
+        "grade": "Grade 9",
+        "div": "9A",
+        "code": "MC9A82",
+        "teachers": [
+          "tc_science"
+        ],
+        "subjects": {
+          "Science": "tc_science",
+          "Maths": "tc_maths"
+        },
+        "createdAt": "2026-11-12T14:49:55.989Z"
+      },
+      {
+        "id": "cls_grade10a",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "name": "Grade 10A — O/L Foundation Cohort",
+        "grade": "Grade 10",
+        "div": "10A",
+        "code": "MC10OL",
+        "teachers": [
+          "tc_science"
+        ],
+        "subjects": {
+          "Science": "tc_science"
+        },
+        "createdAt": "2026-11-12T14:49:55.989Z"
+      }
+    ]
+  },
+  "teachers": {
+    "id_mtz4zcm9_xs77h8e": [
+      {
+        "id": "tc_science",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "name": "Mr. Sivaneswaran (Science Lead)",
+        "email": "sivaneswaran828@gmail.com",
+        "subjects": [
+          "Science",
+          "ICT"
+        ],
+        "classIds": [
+          "cls_grade9a",
+          "cls_grade10a"
+        ],
+        "status": "active",
+        "createdAt": "2026-11-12T14:49:55.989Z"
+      },
+      {
+        "id": "tc_maths",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "name": "Ms. Dilrukshi Perera",
+        "email": "dilrukshi.perera@jmc.school",
+        "subjects": [
+          "Maths"
+        ],
+        "classIds": [
+          "cls_grade9a"
+        ],
+        "status": "active",
+        "createdAt": "2026-11-12T14:49:55.989Z"
+      }
+    ]
+  },
+  "students": {
+    "id_mtz4zcm9_xs77h8e": [
+      {
+        "id": "st_kasun",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "name": "Kasun Bandara",
+        "email": "kasun.student@gmail.com",
+        "admissionNo": "MC-2026-081",
+        "grade": "Grade 9",
+        "classId": "cls_grade9a",
+        "className": "Grade 9A — Physical Sciences & Maths",
+        "parentEmail": "sunil.parent@gmail.com",
+        "status": "active",
+        "joinedAt": "2026-11-12T14:49:55.989Z"
+      },
+      {
+        "id": "st_vimal",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "name": "Vimalanathan K.",
+        "email": "vimal.student@gmail.com",
+        "admissionNo": "MC-2026-094",
+        "grade": "Grade 9",
+        "classId": "cls_grade9a",
+        "className": "Grade 9A — Physical Sciences & Maths",
+        "status": "active",
+        "joinedAt": "2026-11-12T14:49:55.989Z"
+      }
+    ]
+  },
+  "parents": {
+    "id_mtz4zcm9_xs77h8e": [
+      {
+        "id": "par_sunil",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "name": "Mr. Sunil Bandara",
+        "email": "sunil.parent@gmail.com",
+        "phone": "077 345 8899",
+        "children": [
+          "st_kasun"
+        ],
+        "createdAt": "2026-11-12T14:49:55.989Z"
+      }
+    ]
+  },
+  "assignments": {
+    "id_mtz4zcm9_xs77h8e": [
+      {
+        "id": "asn_science_1",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "classId": "cls_grade9a",
+        "className": "Grade 9A",
+        "teacherId": "tc_science",
+        "teacherName": "Mr. Sivaneswaran",
+        "subject": "Science",
+        "title": "Unit 4: Force and Motion — Newton Laws Worksheet",
+        "description": "Complete the questions on balanced forces, friction calculation, and F=ma. Show step-by-step working.",
+        "dueDate": "2026-10-25",
+        "maxMarks": 100,
+        "createdAt": "2026-11-12T14:49:55.989Z"
+      }
+    ]
+  },
+  "submissions": {
+    "id_mtz4zcm9_xs77h8e": [
+      {
+        "id": "sub_kasun_1",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "assignmentId": "asn_science_1",
+        "assignmentTitle": "Unit 4: Force and Motion",
+        "classId": "cls_grade9a",
+        "studentId": "st_kasun",
+        "studentName": "Kasun Bandara",
+        "content": "Newton First Law: An object remains at rest unless acted upon by an external force. Force = mass * acceleration = 12kg * 2.5m/s^2 = 30 N.",
+        "submittedAt": "2026-11-12T14:49:55.989Z",
+        "status": "submitted",
+        "isDraft": false
+      }
+    ]
+  },
+  "attendance": {
+    "id_mtz4zcm9_xs77h8e": [
+      {
+        "id": "att_20261006_cls9a",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "classId": "cls_grade9a",
+        "className": "Grade 9A",
+        "date": "2026-10-06",
+        "teacherId": "tc_science",
+        "teacherName": "Mr. Sivaneswaran",
+        "records": {
+          "st_kasun": "present",
+          "st_vimal": "present"
+        },
+        "presentCount": 2,
+        "absentCount": 0,
+        "lateCount": 0,
+        "createdAt": "2026-11-12T14:49:55.989Z"
+      }
+    ]
+  },
+  "results": {
+    "id_mtz4zcm9_xs77h8e": [
+      {
+        "id": "res_kasun_science",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "classId": "cls_grade9a",
+        "studentId": "st_kasun",
+        "studentName": "Kasun Bandara",
+        "subject": "Science",
+        "term": "Term 1 Mid Exam",
+        "marks": 88,
+        "grade": "A",
+        "feedback": "Excellent grasp of kinematics and experimental diagrams.",
+        "teacherName": "Mr. Sivaneswaran",
+        "createdAt": "2026-11-12T14:49:55.989Z"
+      }
+    ]
+  },
+  "announcements": {
+    "id_mtz4zcm9_xs77h8e": [
+      {
+        "id": "anc_welcome",
+        "schoolId": "id_mtz4zcm9_xs77h8e",
+        "title": "Welcome to JMC Classroom 2026 Academic Term",
+        "content": "Welcome students, parents, and teachers to the live JMC Classroom digital learning portal. Term 1 schedules and assignments are now active.",
+        "authorId": "admin",
+        "authorName": "Mr. Pushparathanam (Principal)",
+        "authorRole": "school",
+        "targetType": "all",
+        "createdAt": "2026-11-12T14:49:55.989Z"
+      }
+    ]
+  },
+  "auditLogs": {
+    "id_mtz4zcm9_xs77h8e": []
+  },
+  "notes": {
+    "id_mtz4zcm9_xs77h8e": []
+  },
+  "schoolApplications": {
+    "APP-2026-JXUW07": {
+      "id": "APP-2026-JXUW07",
+      "schoolName": "St. Johns College, Jaffna",
+      "principalName": "Rev. V. Pathmathayalan",
+      "administratorName": "Pathmathayalan V.",
+      "administratorEmail": "admin.stjohns@jmc.school",
+      "contactNumber": "021 222 2011",
+      "province": "Northern Province",
+      "district": "Jaffna",
+      "address": "Chundikuli, Jaffna",
+      "schoolType": "National School (Type 1AB)",
+      "website": "https://stjohns.lk",
+      "additionalInfo": "Grade 6 to 11 cohort enrollment: 650 students",
+      "submissionDate": "2026-11-12T14:50:02.499Z",
+      "status": "APPROVED",
+      "operatorRemarks": "School verification verified via Jaffna Zonal Education Office.",
+      "createdAt": "2026-11-12T14:50:02.499Z",
+      "approvalDate": "2026-11-12T14:50:19.375Z",
+      "schoolId": "SCH-STJO-MWDO02NJ",
+      "updatedAt": "2026-11-12T14:50:19.375Z"
+    },
+    "APP-2026-BUYJ16": {
+      "id": "APP-2026-BUYJ16",
+      "schoolName": "Chundikuli Girls College, Jaffna",
+      "principalName": "Mrs. D. Thuseetharan",
+      "administratorName": "Mrs. Thuseetharan",
+      "administratorEmail": "admin.chundikuli@jmc.school",
+      "contactNumber": "021 222 2012",
+      "province": "Northern Province",
+      "district": "Jaffna",
+      "address": "Main Street, Chundikuli, Jaffna",
+      "schoolType": "Private / Semi-Government School",
+      "website": "",
+      "additionalInfo": "",
+      "submissionDate": "2026-11-12T14:50:34.227Z",
+      "status": "REJECTED",
+      "operatorRemarks": "School contact telephone could not be verified with the Zonal registry.",
+      "createdAt": "2026-11-12T14:50:34.227Z",
+      "updatedAt": "2026-11-12T14:50:42.652Z"
+    }
+  }
+}

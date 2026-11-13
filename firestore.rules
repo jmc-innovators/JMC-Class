@@ -3,6 +3,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Global safety net default-deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     function signedIn() {
       return request.auth != null;
     }
@@ -15,38 +20,104 @@ service cloud.firestore {
       return myUserDoc().data;
     }
 
+    function isOperatorEmail() {
+      return request.auth.token.email != null
+        && request.auth.token.email_verified == true
+        && (
+          request.auth.token.email == 'info@jmcinnovator.cc.cd' ||
+          request.auth.token.email == 'jmc.class2027@gmail.com' ||
+          request.auth.token.email == 'operator@jmc.internal' ||
+          request.auth.token.email == 'operator@jmc.com'
+        );
+    }
+
     function isOperator() {
       return signedIn() && (
-        (request.auth.token.email != null && (
-          request.auth.token.email == 'jmc.class2027@gmail.com' ||
-          request.auth.token.email == 'operator@jmc.internal'
-        )) ||
+        isOperatorEmail() ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && myUser().role == 'operator')
       );
     }
 
-    // ----------------------------------------------------------
-    // Test Connection Path
-    // ----------------------------------------------------------
-    match /_connection_test/{docId} {
-      allow read, write: if true;
+    function isApprovedSchoolAdminFor(schoolId) {
+      let schoolData = get(/databases/$(database)/documents/schools/$(schoolId)).data;
+      return signedIn() && (
+        (
+          request.auth.token.email != null
+          && request.auth.token.email_verified == true
+          && (
+            schoolData.administratorEmail == request.auth.token.email ||
+            schoolData.adminEmail == request.auth.token.email
+          )
+        ) ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && myUser().role in ['school', 'supervisor']
+          && myUser().schoolId == schoolId
+        )
+      );
     }
 
     // ----------------------------------------------------------
-    // Users Collection
+    // Connection Validation Path (Read-only for startup health ping)
+    // ----------------------------------------------------------
+    match /test/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /_connection_test/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ----------------------------------------------------------
+    // Users Collection (PII & RBAC Protected)
     // ----------------------------------------------------------
     match /users/{uid} {
-      allow read: if signedIn();
-      allow create, update: if signedIn();
+      allow get: if isOperator() || (signedIn() && request.auth.uid == uid);
+      allow list: if isOperator();
+      allow create: if isOperator() || (
+        signedIn()
+        && request.auth.uid == uid
+        && (request.resource.data.role != 'operator' || isOperatorEmail())
+      );
+      allow update: if isOperator() || (
+        signedIn()
+        && request.auth.uid == uid
+        && (request.resource.data.role != 'operator' || isOperatorEmail())
+      );
       allow delete: if isOperator();
+    }
+
+    // ----------------------------------------------------------
+    // School Registration Applications
+    // ----------------------------------------------------------
+    match /school_applications/{applicationId} {
+      // Visitors can submit new pending school applications
+      allow create: if request.resource.data.status == 'PENDING'
+        && request.resource.data.schoolName is string
+        && request.resource.data.schoolName.size() > 0
+        && request.resource.data.schoolName.size() <= 200
+        && request.resource.data.administratorEmail is string
+        && request.resource.data.administratorEmail.size() > 0
+        && request.resource.data.administratorEmail.size() <= 200;
+      // Only verified Platform Operators can read, list, update (approve/reject), or delete applications
+      allow read, update, delete: if isOperator();
     }
 
     // ----------------------------------------------------------
     // Invites Collection (Email to Role mappings)
     // ----------------------------------------------------------
     match /invites/{email} {
-      allow read: if signedIn();
-      allow create, update, delete: if signedIn();
+      allow get: if isOperator() || (
+        signedIn() && request.auth.token.email != null && request.auth.token.email == email
+      );
+      allow list: if isOperator();
+      allow create, update, delete: if isOperator() || (
+        signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && myUser().role in ['school', 'supervisor']
+      );
     }
 
     // ----------------------------------------------------------
@@ -65,7 +136,8 @@ service cloud.firestore {
     // ----------------------------------------------------------
     match /schools/{schoolId} {
       allow read: if true;
-      allow create, update, delete: if signedIn();
+      allow create, delete: if isOperator();
+      allow update: if isOperator() || isApprovedSchoolAdminFor(schoolId);
 
       // Classes
       match /classes/{classId} {
@@ -131,10 +203,10 @@ service cloud.firestore {
         allow read, write: if signedIn();
       }
 
-      // Audit Logs
+      // Immutable Audit Logs
       match /auditLogs/{logId} {
         allow read, create: if signedIn();
-        allow update, delete: if false; // Immutable audit logs
+        allow update, delete: if false;
       }
     }
   }

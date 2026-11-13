@@ -9,9 +9,17 @@ import {
   query,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import {
+  auth,
+  db,
+  handleFirestoreError,
+  OperationType,
+  cleanFirestoreData,
+  PRIMARY_OPERATOR_EMAIL,
+} from './firebase';
 import {
   School,
+  SchoolApplication,
   Classroom,
   Teacher,
   Student,
@@ -38,6 +46,13 @@ export function generateClassCode(): string {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
+}
+
+function checkFirestoreErr(err: unknown, op: OperationType, path: string | null) {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes('insufficient permissions') || (err as any)?.code === 'permission-denied') {
+    handleFirestoreError(err, op, path);
+  }
 }
 
 // -------------------------------------------------------------
@@ -106,7 +121,7 @@ export async function logAuditEvent(
   await syncApiSave(schoolId, 'auditLogs', entry);
   try {
     const logRef = doc(db, 'schools', schoolId, 'auditLogs', logId);
-    await setDoc(logRef, entry);
+    await setDoc(logRef, cleanFirestoreData(entry));
   } catch (err) {
     // Firestore rules might restrict subcollection
   }
@@ -187,7 +202,7 @@ export async function createSchool(
   } catch {}
 
   try {
-    await setDoc(doc(db, 'schools', schoolId), school);
+    await setDoc(doc(db, 'schools', schoolId), cleanFirestoreData(school));
   } catch (err) {
     console.warn('Firestore createSchool notice:', err);
   }
@@ -221,7 +236,7 @@ export async function updateSchoolProfile(
   } catch {}
 
   try {
-    await updateDoc(doc(db, 'schools', schoolId), updates);
+    await setDoc(doc(db, 'schools', schoolId), cleanFirestoreData(updates), { merge: true });
   } catch (err) {
     console.warn('Firestore updateSchoolProfile notice:', err);
   }
@@ -234,15 +249,28 @@ export async function updateSchoolProfile(
     'UPDATE_SCHOOL_PROFILE',
     'School',
     schoolId,
-    updates
+    cleanFirestoreData(updates)
   );
 }
 
 export async function deleteSchool(
   schoolId: string,
   actorUid: string,
-  actorName: string
+  actorName: string,
+  actorEmail?: string
 ): Promise<void> {
+  const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => null) : null;
+  try {
+    await fetch(`/api/schools/${schoolId}`, {
+      method: 'DELETE',
+      headers: {
+        'x-actor-role': 'operator',
+        'x-actor-email': actorEmail || auth.currentUser?.email || PRIMARY_OPERATOR_EMAIL,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  } catch {}
+
   try {
     await deleteDoc(doc(db, 'schools', schoolId));
   } catch {}
@@ -297,7 +325,7 @@ export async function createClassroom(
 
   // 2. Also try Firestore
   try {
-    await setDoc(doc(db, 'schools', schoolId, 'classes', classId), classroom);
+    await setDoc(doc(db, 'schools', schoolId, 'classes', classId), cleanFirestoreData(classroom));
   } catch (err) {
     console.warn('Firestore createClassroom note:', err);
   }
@@ -375,8 +403,9 @@ export async function joinClassByCode(
         const batch = writeBatch(db);
         const studentInClassRef = doc(db, 'schools', sch.id, 'classes', foundClass.id, 'students', studentId);
         const studentInSchoolRef = doc(db, 'schools', sch.id, 'students', studentId);
-        batch.set(studentInClassRef, student);
-        batch.set(studentInSchoolRef, student);
+        const cleanStudent = cleanFirestoreData(student);
+        batch.set(studentInClassRef, cleanStudent);
+        batch.set(studentInSchoolRef, cleanStudent);
         await batch.commit();
       } catch {}
 
@@ -435,7 +464,7 @@ export async function createTeacher(
   await syncApiSave(schoolId, 'teachers', teacher);
 
   try {
-    await setDoc(doc(db, 'schools', schoolId, 'teachers', teacherId), teacher);
+    await setDoc(doc(db, 'schools', schoolId, 'teachers', teacherId), cleanFirestoreData(teacher));
     await setDoc(doc(db, 'invites', teacher.email), {
       role: 'teacher',
       schoolId,
@@ -533,9 +562,10 @@ export async function createStudent(
 
   try {
     const batch = writeBatch(db);
-    batch.set(doc(db, 'schools', schoolId, 'students', studentId), student);
+    const cleanStudent = cleanFirestoreData(student);
+    batch.set(doc(db, 'schools', schoolId, 'students', studentId), cleanStudent);
     if (data.classId) {
-      batch.set(doc(db, 'schools', schoolId, 'classes', data.classId, 'students', studentId), student);
+      batch.set(doc(db, 'schools', schoolId, 'classes', data.classId, 'students', studentId), cleanStudent);
     }
     if (student.email) {
       batch.set(doc(db, 'invites', student.email), {
@@ -626,7 +656,7 @@ export async function createParent(
   await syncApiSave(schoolId, 'parents', parent);
 
   try {
-    await setDoc(doc(db, 'schools', schoolId, 'parents', parentId), parent);
+    await setDoc(doc(db, 'schools', schoolId, 'parents', parentId), cleanFirestoreData(parent));
     await setDoc(doc(db, 'invites', parent.email), {
       role: 'parent',
       schoolId,
@@ -691,7 +721,7 @@ export async function createAssignment(
   await syncApiSave(schoolId, 'assignments', assignment);
 
   try {
-    await setDoc(doc(db, 'schools', schoolId, 'assignments', assignmentId), assignment);
+    await setDoc(doc(db, 'schools', schoolId, 'assignments', assignmentId), cleanFirestoreData(assignment));
   } catch (err) {
     console.warn('Firestore assignment write notice:', err);
   }
@@ -783,7 +813,7 @@ export async function submitStudentWork(
   await syncApiSave(schoolId, 'submissions', submission);
 
   try {
-    await setDoc(doc(db, 'schools', schoolId, 'submissions', submissionId), submission, { merge: true });
+    await setDoc(doc(db, 'schools', schoolId, 'submissions', submissionId), cleanFirestoreData(submission), { merge: true });
   } catch {}
 
   return submission;
@@ -886,7 +916,7 @@ export async function saveAttendanceSession(
   await syncApiSave(schoolId, 'attendance', session);
 
   try {
-    await setDoc(doc(db, 'schools', schoolId, 'attendance', sessionId), session);
+    await setDoc(doc(db, 'schools', schoolId, 'attendance', sessionId), cleanFirestoreData(session));
   } catch {}
 
   await logAuditEvent(
@@ -944,7 +974,7 @@ export async function saveAssessmentResult(
   await syncApiSave(schoolId, 'results', result);
 
   try {
-    await setDoc(doc(db, 'schools', schoolId, 'results', resultId), result);
+    await setDoc(doc(db, 'schools', schoolId, 'results', resultId), cleanFirestoreData(result));
   } catch {}
 
   await logAuditEvent(
@@ -1043,7 +1073,7 @@ export async function createAnnouncement(
   await syncApiSave(schoolId, 'announcements', announcement);
 
   try {
-    await setDoc(doc(db, 'schools', schoolId, 'announcements', announcementId), announcement);
+    await setDoc(doc(db, 'schools', schoolId, 'announcements', announcementId), cleanFirestoreData(announcement));
   } catch {}
 
   await logAuditEvent(
@@ -1121,8 +1151,250 @@ export async function sendMessage(
   await syncApiSave(schoolId, 'messages', msg);
 
   try {
-    await setDoc(doc(db, 'schools', schoolId, 'messages', msgId), msg);
+    await setDoc(doc(db, 'schools', schoolId, 'messages', msgId), cleanFirestoreData(msg));
   } catch {}
 
   return msg;
+}
+
+// -------------------------------------------------------------
+// SCHOOL REGISTRATION APPLICATIONS & OPERATOR APPROVALS
+// -------------------------------------------------------------
+export async function submitSchoolApplication(
+  data: Omit<SchoolApplication, 'id' | 'submissionDate' | 'status' | 'createdAt'>
+): Promise<SchoolApplication> {
+  const res = await fetch('/api/school-applications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || `Registration failed with status ${res.status}`);
+  }
+
+  const result = await res.json();
+  const application: SchoolApplication = result.application;
+
+  // Also persist directly to Cloud Firestore school_applications collection
+  try {
+    await setDoc(doc(db, 'school_applications', application.id), cleanFirestoreData(application));
+  } catch (err) {
+    console.warn('Firestore direct write notice (application saved via backend):', err);
+  }
+
+  return application;
+}
+
+export async function fetchSchoolApplications(actorEmail?: string): Promise<SchoolApplication[]> {
+  const map = new Map<string, SchoolApplication>();
+  const resolvedEmail = (actorEmail || auth.currentUser?.email || PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
+  const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => null) : null;
+
+  // 1. Fetch from Cloud Firestore only when signed in with Firebase Auth
+  if (auth.currentUser) {
+    try {
+      const snap = await getDocs(collection(db, 'school_applications'));
+      snap.forEach((d) => {
+        map.set(d.id, { ...(d.data() as SchoolApplication), id: d.id });
+      });
+    } catch (err) {
+      checkFirestoreErr(err, OperationType.LIST, 'school_applications');
+    }
+  }
+
+  // 2. Fetch from Backend / Apps Script sync endpoint
+  try {
+    const res = await fetch('/api/school-applications', {
+      headers: {
+        'x-actor-role': 'operator',
+        'x-actor-email': resolvedEmail,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (res.ok) {
+      const apiApps: SchoolApplication[] = await res.json();
+      apiApps.forEach((a) => {
+        const existing = map.get(a.id);
+        if (!existing || (a.updatedAt && (!existing.updatedAt || a.updatedAt >= existing.updatedAt))) {
+          map.set(a.id, a);
+        }
+      });
+    } else {
+      const errBody = await res.json().catch(() => ({}));
+      if (map.size === 0) {
+        throw new Error(errBody.error || `Failed to load applications (${res.status})`);
+      }
+    }
+  } catch (err) {
+    console.warn('API fetch applications notice:', err);
+    if (map.size === 0 && !auth.currentUser) {
+      throw err;
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) =>
+    (b.submissionDate || '').localeCompare(a.submissionDate || '')
+  );
+}
+
+export async function approveSchoolApplication(
+  applicationId: string,
+  operatorRemarks: string,
+  operatorUid: string,
+  operatorName: string,
+  operatorEmail: string,
+  applicationData?: SchoolApplication
+): Promise<{ schoolId: string; school: School; application: SchoolApplication }> {
+  const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => null) : null;
+  const resolvedEmail = (operatorEmail || auth.currentUser?.email || PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
+
+  // 1. Call server-side approval endpoint
+  const res = await fetch(`/api/school-applications/${applicationId}/approve`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-actor-role': 'operator',
+      'x-actor-email': resolvedEmail,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      operatorRemarks,
+      operatorUid,
+      operatorName,
+      operatorEmail: resolvedEmail,
+      applicationData,
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || `Approval failed with status ${res.status}`);
+  }
+
+  const result = await res.json();
+  const { schoolId, school } = result;
+  const application: SchoolApplication = result.application || {
+    ...(applicationData || ({} as SchoolApplication)),
+    id: applicationId,
+    status: 'APPROVED',
+    schoolId,
+    approvalDate: result.approvedAt || new Date().toISOString(),
+    operatorRemarks: operatorRemarks || 'Approved by Platform Operator',
+    updatedAt: new Date().toISOString(),
+  };
+
+  // 2. Ensure Cloud Firestore is updated directly
+  try {
+    await setDoc(doc(db, 'schools', schoolId), cleanFirestoreData(school), { merge: true });
+    await setDoc(
+      doc(db, 'school_applications', applicationId),
+      cleanFirestoreData(application),
+      { merge: true }
+    );
+
+    const targetAdminEmail = (school.administratorEmail || school.adminEmail || '').toLowerCase().trim();
+    if (targetAdminEmail) {
+      await setDoc(
+        doc(db, 'invites', targetAdminEmail),
+        {
+          role: 'school',
+          schoolId,
+          roleRefId: schoolId,
+          createdAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    }
+  } catch (err) {
+    console.warn('Firestore client update note:', err);
+  }
+
+  // 3. Log Audit Event
+  await logAuditEvent(
+    schoolId,
+    operatorUid,
+    operatorName,
+    'operator',
+    'APPROVE_SCHOOL_REGISTRATION',
+    'SchoolApplication',
+    applicationId,
+    {
+      schoolId,
+      schoolName: school.name,
+      adminEmail: school.administratorEmail || school.adminEmail,
+      operatorRemarks,
+    }
+  );
+
+  return { schoolId, school, application };
+}
+
+export async function rejectSchoolApplication(
+  applicationId: string,
+  operatorRemarks: string,
+  operatorUid: string,
+  operatorName: string,
+  operatorEmail: string,
+  applicationData?: SchoolApplication
+): Promise<SchoolApplication> {
+  const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => null) : null;
+  const resolvedEmail = (operatorEmail || auth.currentUser?.email || PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
+
+  const res = await fetch(`/api/school-applications/${applicationId}/reject`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-actor-role': 'operator',
+      'x-actor-email': resolvedEmail,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      operatorRemarks,
+      operatorUid,
+      operatorName,
+      operatorEmail: resolvedEmail,
+      applicationData,
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || `Rejection failed with status ${res.status}`);
+  }
+
+  const result = await res.json();
+  const application: SchoolApplication = result.application || {
+    ...(applicationData || ({} as SchoolApplication)),
+    id: applicationId,
+    status: 'REJECTED',
+    operatorRemarks,
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Update Cloud Firestore
+  try {
+    await setDoc(
+      doc(db, 'school_applications', applicationId),
+      cleanFirestoreData(application),
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('Firestore reject update note:', err);
+  }
+
+  // Log Audit Event
+  await logAuditEvent(
+    'system',
+    operatorUid,
+    operatorName,
+    'operator',
+    'REJECT_SCHOOL_REGISTRATION',
+    'SchoolApplication',
+    applicationId,
+    { operatorRemarks }
+  );
+
+  return application;
 }

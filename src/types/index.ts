@@ -14,21 +14,51 @@ export interface UserProfile {
   lastLoginAt?: any;
 }
 
+export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface SchoolApplication {
+  id: string; // e.g. APP-2026-XXXXX
+  schoolName: string;
+  principalName: string;
+  administratorName: string;
+  administratorEmail: string;
+  contactNumber: string;
+  province: string;
+  district: string;
+  address: string;
+  schoolType: string;
+  website?: string;
+  additionalInfo?: string;
+  submissionDate: string; // ISO date string
+  status: ApplicationStatus;
+  operatorRemarks?: string;
+  approvalDate?: string;
+  schoolId?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface School {
   id: string;
   name: string;
+  schoolName?: string;
   adminEmail: string;
+  administratorEmail?: string;
+  administratorName?: string;
   principalName?: string;
   schoolType?: string;
   address?: string;
   district?: string;
   province?: string;
   phone?: string;
+  contactNumber?: string;
   email?: string;
   website?: string;
   academicYear?: string;
   logoUrl?: string;
-  status: 'active' | 'pending' | 'inactive';
+  status: 'active' | 'pending' | 'inactive' | 'ACTIVE';
+  applicationId?: string;
+  approvedAt?: string;
   createdAt: string;
 }
 

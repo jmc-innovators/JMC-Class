@@ -18,6 +18,7 @@ import {
   KeyRound,
   ExternalLink,
 } from 'lucide-react';
+import { SchoolRegistrationModal } from './SchoolRegistrationModal';
 
 interface LandingPageProps {
   onSignInWithGoogle: (preferredRole?: UserRole) => Promise<void>;
@@ -197,11 +198,41 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </p>
               </div>
 
-              {error && (
-                <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-xs flex items-center gap-2">
-                  <span>⚠</span> {error}
+              {error && isUnauthorizedDomain ? (
+                <div className="mb-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-2">
+                  <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                    <KeyRound className="w-4 h-4 shrink-0" /> Authorize Domain in Firebase Auth
+                  </div>
+                  <p className="text-[11px] text-amber-100/80 leading-relaxed">
+                    Add this preview hostname to Firebase Authentication → Settings → Authorized domains:
+                  </p>
+                  <div className="flex items-center gap-2 bg-black/30 rounded-lg px-2.5 py-1.5 border border-white/10">
+                    <code className="text-[11px] text-white font-mono truncate flex-1">{unauthorizedDomain}</code>
+                    <button
+                      type="button"
+                      onClick={handleCopyDomain}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white shrink-0"
+                    >
+                      {copiedDomain ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      {copiedDomain ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
                 </div>
-              )}
+              ) : error ? (
+                <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-xs flex items-start gap-2">
+                  <span className="shrink-0">⚠</span>
+                  <span className="break-words">
+                    {(() => {
+                      try {
+                        const parsed = JSON.parse(error);
+                        return parsed.error || error;
+                      } catch {
+                        return error;
+                      }
+                    })()}
+                  </span>
+                </div>
+              ) : null}
 
               {/* Role selector buttons */}
               <div className="space-y-2 mb-6">
@@ -286,8 +317,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="flex items-center gap-2">
                     <Shield className="w-3.5 h-3.5 text-purple-400" /> Platform Operator Portal
                   </span>
-                  <span className="text-[10px] text-slate-500">System Admin</span>
+                  <span className="text-[10px] text-slate-500">info@jmcinnovator.cc.cd</span>
                 </button>
+                {selectedRole === 'operator' && (
+                  <div className="px-3 py-2 rounded-xl bg-purple-500/10 border border-purple-500/25 text-[11px] text-purple-200">
+                    Authorized Operator Account: <b className="text-white">info@jmcinnovator.cc.cd</b>
+                  </div>
+                )}
               </div>
 
               {/* Main Google Sign-In Action */}
@@ -443,118 +479,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       )}
 
       {/* Register School Modal */}
-      {showRegisterModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#151a28] border border-white/10 rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-white font-['Plus_Jakarta_Sans'] mb-1">
-              Register Your School
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Onboard your educational institution to JMC Classroom with full Firestore backend support.
-            </p>
-
-            {regSuccess ? (
-              <div className="text-center py-6 space-y-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-xl font-bold">
-                  ✓
-                </div>
-                <h4 className="text-base font-bold text-white">School Created Successfully!</h4>
-                <p className="text-xs text-slate-300">
-                  You can now sign in using the administrator Google email: <b>{regData.adminEmail}</b>.
-                </p>
-                <button
-                  onClick={() => {
-                    setShowRegisterModal(false);
-                    setRegSuccess(false);
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white"
-                >
-                  Done
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">School Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={regData.name}
-                    onChange={(e) => setRegData({ ...regData, name: e.target.value })}
-                    placeholder="e.g. Mahajana College, Tellippalai"
-                    className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Administrator Google Email *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={regData.adminEmail}
-                    onChange={(e) => setRegData({ ...regData, adminEmail: e.target.value })}
-                    placeholder="e.g. principal@mahajana.lk or your Google account"
-                    className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">Principal Name</label>
-                    <input
-                      type="text"
-                      value={regData.principalName}
-                      onChange={(e) => setRegData({ ...regData, principalName: e.target.value })}
-                      placeholder="e.g. Mr. K. Sivanesan"
-                      className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">District / Province</label>
-                    <input
-                      type="text"
-                      value={regData.district}
-                      onChange={(e) => setRegData({ ...regData, district: e.target.value })}
-                      placeholder="e.g. Jaffna, Northern Province"
-                      className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">Official Contact Phone</label>
-                  <input
-                    type="tel"
-                    value={regData.phone}
-                    onChange={(e) => setRegData({ ...regData, phone: e.target.value })}
-                    placeholder="e.g. 021 222 XXXX"
-                    className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="flex gap-2 justify-end pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowRegisterModal(false)}
-                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading || !regData.name || !regData.adminEmail}
-                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 disabled:opacity-50"
-                  >
-                    {loading ? 'Creating School…' : 'Register School'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      <SchoolRegistrationModal
+        isOpen={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
+      />
     </div>
   );
 };
