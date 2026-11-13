@@ -6,11 +6,11 @@
  * ============================================================================
  *
  * PRIMARY OPERATOR & WORKSPACE ACCOUNT:
- *   innovatorsjmc@gmail.com
+ *   info@jmcinnovator.cc.cd
  *
  * SETUP INSTRUCTIONS:
- * 1. Sign in to Google as `innovatorsjmc@gmail.com` (or an account that owns
- *    Drive/Sheets and can send as `innovatorsjmc@gmail.com` as a verified Send-As alias).
+ * 1. Sign in to Google as the account that owns Drive/Sheets and can send as
+ *    `info@jmcinnovator.cc.cd` (either directly or as a verified Send-As alias).
  * 2. Create a new Google Apps Script project at https://script.google.com
  *    (or from a bound Google Sheet: Extensions > Apps Script).
  * 3. Paste this entire file into Code.gs.
@@ -18,24 +18,25 @@
  *    Services (+) > Gmail API (identifier: Gmail). (Optional — GmailApp fallback
  *    also works automatically.)
  * 5. Run `setupAutomationWorkspace()` once from the Apps Script Editor to:
- *      - Verify account authorization & sending alias for innovatorsjmc@gmail.com
+ *      - Verify account authorization & sending alias for info@jmcinnovator.cc.cd
  *      - Create Drive folder `JMC CLASSROOM AUTOMATION` & all 5 subfolders
  *      - Create Spreadsheet `JMC Classroom – School Registration Database`
  *        with all 4 sheets (`School Registrations`, `Approved Schools`,
  *        `Rejected Schools`, `Activity Logs`)
  * 6. Deploy > New deployment > Web app:
- *      - Execute as: Me
+ *      - Execute as: Me (info@jmcinnovator.cc.cd)
  *      - Who has access: Anyone
- * 7. Copy the Web App URL into `.env` as `GOOGLE_APPS_SCRIPT_URL`.
+ * 7. Paste the Web App URL directly into the JMC Classroom Operator Dashboard
+ *    (Google Workspace Automation tab). No `.env` or environment variables needed.
  */
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 var CONFIG = {
-  PRIMARY_OPERATOR_EMAIL: 'innovatorsjmc@gmail.com',
+  PRIMARY_OPERATOR_EMAIL: 'info@jmcinnovator.cc.cd',
   AUTHORIZED_OPERATORS: [
-    'innovatorsjmc@gmail.com',
+    'info@jmcinnovator.cc.cd',
     'jmc.class2027@gmail.com'
   ],
   ROOT_FOLDER_NAME: 'JMC CLASSROOM AUTOMATION',
@@ -55,6 +56,7 @@ var CONFIG = {
   },
   SENDER_NAME: 'JMC Classroom Administration Team',
   PLATFORM_NAME: 'JMC Classroom',
+  PLATFORM_URL: 'https://jmcinnovator.cc.cd/',
   // Optional: set Firestore REST target if pushing directly from Apps Script
   FIREBASE_PROJECT_ID: 'gen-lang-client-0883116641',
   FIRESTORE_DATABASE_ID: 'ai-studio-jmcclass-20742766-c8cd-4030-95f3-22ca7c7d152d'
@@ -155,7 +157,7 @@ function setupAutomationWorkspace() {
 }
 
 /**
- * Verifies the executing Google account and checks whether innovatorsjmc@gmail.com
+ * Verifies the executing Google account and checks whether info@jmcinnovator.cc.cd
  * is the primary account or a configured Gmail/Domain sending alias.
  */
 function verifyAuthorizedAccount_() {
@@ -188,7 +190,6 @@ function verifyAuthorizedAccount_() {
   return {
     effectiveEmail: effectiveEmail,
     targetEmail: target,
-    accountMatchesPrimary: effectiveEmail === target,
     aliases: aliases,
     mode: mode,
     sendFrom: sendFrom,
@@ -199,17 +200,6 @@ function verifyAuthorizedAccount_() {
 // ============================================================================
 // 1. GOOGLE DRIVE AUTOMATION (DEDUPLICATED)
 // ============================================================================
-function syncOperatorScriptProperties_() {
-  var props = PropertiesService.getScriptProperties();
-  var storedOp = String(props.getProperty('JMC_OPERATOR_EMAIL') || '').toLowerCase().trim();
-  if (storedOp && storedOp !== CONFIG.PRIMARY_OPERATOR_EMAIL.toLowerCase()) {
-    props.deleteProperty('JMC_ROOT_FOLDER_ID');
-    props.deleteProperty('JMC_SPREADSHEET_ID');
-  }
-  props.setProperty('JMC_OPERATOR_EMAIL', CONFIG.PRIMARY_OPERATOR_EMAIL.toLowerCase());
-  return props;
-}
-
 function getOrCreateFolder_(parentFolder, folderName) {
   var iterator = parentFolder
     ? parentFolder.getFoldersByName(folderName)
@@ -225,7 +215,7 @@ function getOrCreateFolder_(parentFolder, folderName) {
 }
 
 function ensureAutomationFolders_() {
-  var props = syncOperatorScriptProperties_();
+  var props = PropertiesService.getScriptProperties();
   var rootFolder = null;
   var savedRootId = props.getProperty('JMC_ROOT_FOLDER_ID');
 
@@ -388,8 +378,8 @@ function doGet(e) {
     if (action === 'getApplications') {
       return handleGetApplications_(params);
     }
-    if (action === 'verifyAccount' || action === 'testConnections') {
-      return createJsonResponse_(runAppsScriptConnectionTest_());
+    if (action === 'verifyAccount') {
+      return createJsonResponse_({ success: true, account: verifyAuthorizedAccount_() });
     }
     if (action === 'setupWorkspace') {
       return createJsonResponse_(setupAutomationWorkspace());
@@ -407,47 +397,6 @@ function doGet(e) {
   }
 }
 
-function runAppsScriptConnectionTest_() {
-  var account = verifyAuthorizedAccount_();
-  var driveOk = false;
-  var sheetsOk = false;
-  var driveError = '';
-  var sheetsError = '';
-
-  try {
-    DriveApp.getRootFolder().getName();
-    driveOk = true;
-  } catch (e) {
-    driveError = e.message || String(e);
-  }
-
-  try {
-    var props = PropertiesService.getScriptProperties();
-    var sheetId = props.getProperty('JMC_SPREADSHEET_ID');
-    if (sheetId) {
-      SpreadsheetApp.openById(sheetId).getName();
-    } else {
-      DriveApp.getFilesByName(CONFIG.SPREADSHEET_NAME).hasNext();
-    }
-    sheetsOk = true;
-  } catch (e) {
-    sheetsError = e.message || String(e);
-  }
-
-  return {
-    success: driveOk && sheetsOk && account.canSendEmail,
-    account: account,
-    driveApiOk: driveOk,
-    sheetsApiOk: sheetsOk,
-    gmailApiOk: account.canSendEmail,
-    errors: {
-      drive: driveError,
-      sheets: sheetsError
-    },
-    testedAt: new Date().toISOString()
-  };
-}
-
 function doPost(e) {
   try {
     var rawBody = e && e.postData && e.postData.contents ? e.postData.contents : '{}';
@@ -463,8 +412,10 @@ function doPost(e) {
     switch (action) {
       case 'setupWorkspace':
         return createJsonResponse_(setupAutomationWorkspace());
-      case 'testConnections':
-        return createJsonResponse_(runAppsScriptConnectionTest_());
+      case 'verifyAccount':
+        return createJsonResponse_({ success: true, account: verifyAuthorizedAccount_() });
+      case 'syncApplications':
+        return handleSyncApplications_(data);
       case 'register':
       case 'submitApplication':
         return handleRegisterSchool_(data);
@@ -573,32 +524,6 @@ function handleRegisterSchool_(data) {
     'PENDING'
   );
 
-  // Send school registration notification email to designated primary operator (innovatorsjmc@gmail.com)
-  var operatorNotificationSent = false;
-  try {
-    sendAutomationEmail_(
-      CONFIG.PRIMARY_OPERATOR_EMAIL,
-      'JMC Classroom – New School Registration: ' + schoolName + ' (' + registrationId + ')',
-      'A new school registration has been submitted on JMC Classroom.\n\n' +
-        'Registration ID: ' + registrationId + '\n' +
-        'School Name: ' + schoolName + '\n' +
-        'Official School Email: ' + schoolEmail + '\n' +
-        'Contact Person: ' + contactPerson + '\n' +
-        'Phone Number: ' + phone + '\n' +
-        'District: ' + district + '\n' +
-        'Address: ' + address + '\n' +
-        'School Type: ' + schoolType + '\n' +
-        'Submitted Date: ' + submittedDate + '\n' +
-        (additionalInfo ? 'Additional Info: ' + additionalInfo + '\n' : '') +
-        (docResult ? 'Supporting Document (Drive): ' + docResult.fileUrl + '\n' : '') +
-        '\nReview this application in the Operator Dashboard.\n\n' +
-        'JMC Classroom Automation System\n' + CONFIG.PRIMARY_OPERATOR_EMAIL
-    );
-    operatorNotificationSent = true;
-  } catch (notifyErr) {
-    Logger.log('Operator notification email notice: ' + notifyErr.message);
-  }
-
   return createJsonResponse_({
     success: true,
     message: 'Your school registration has been submitted successfully. Our administration team will review your application.',
@@ -606,8 +531,7 @@ function handleRegisterSchool_(data) {
     status: 'PENDING',
     submissionDate: submittedDate,
     driveFileId: docResult ? docResult.fileId : '',
-    driveFileUrl: docResult ? docResult.fileUrl : '',
-    operatorNotificationSent: operatorNotificationSent
+    driveFileUrl: docResult ? docResult.fileUrl : ''
   });
 }
 
@@ -675,12 +599,37 @@ function handleApproveApplication_(data) {
     }
   }
 
+  // If the application originated in the web platform before Apps Script was linked, insert it cleanly first
+  if ((targetRowIndex === -1 || !rowData) && data.application) {
+    var fallbackApp = data.application;
+    db.registrations.appendRow([
+      registrationId,
+      String(fallbackApp.schoolName || ''),
+      String(fallbackApp.administratorEmail || '').toLowerCase(),
+      String(fallbackApp.administratorName || fallbackApp.principalName || ''),
+      String(fallbackApp.contactNumber || ''),
+      String(fallbackApp.address || ''),
+      String(fallbackApp.district || ''),
+      String(fallbackApp.schoolType || 'School'),
+      String(fallbackApp.submissionDate || new Date().toISOString()),
+      'PENDING',
+      '',
+      '',
+      '',
+      String(fallbackApp.additionalInfo || ''),
+      String(fallbackApp.driveFileUrl || ''),
+      ''
+    ]);
+    targetRowIndex = db.registrations.getLastRow();
+    rowData = db.registrations.getRange(targetRowIndex, 1, 1, REGISTRATION_HEADERS.length).getValues()[0];
+  }
+
   if (targetRowIndex === -1 || !rowData) {
     return createJsonResponse_({ success: false, error: 'Registration record not found: ' + registrationId });
   }
 
-  if (String(rowData[9]).trim().toUpperCase() !== 'PENDING') {
-    return createJsonResponse_({ success: false, error: 'Only PENDING registrations can be approved.' });
+  if (String(rowData[9]).trim().toUpperCase() === 'APPROVED') {
+    return createJsonResponse_({ success: true, applicationId: registrationId, status: 'APPROVED', alreadyApproved: true });
   }
 
   var schoolName = String(rowData[1]);
@@ -753,7 +702,8 @@ function handleApproveApplication_(data) {
       'Your school registration application for ' + schoolName + ' has been reviewed and APPROVED by ' + approvedBy + '.\n\n' +
       'Assigned School ID: ' + schoolId + '\n' +
       'Registered Google Account Email: ' + schoolEmail + '\n' +
-      'Approval Date: ' + approvalDate + '\n\n' +
+      'Approval Date: ' + approvalDate + '\n' +
+      'Platform Portal: ' + CONFIG.PLATFORM_URL + '\n\n' +
       'You can now log into the JMC Classroom School Administrator Portal using Google Sign-In.\n\n' +
       'Best Regards,\nJMC Classroom Administration Team\n' + CONFIG.PRIMARY_OPERATOR_EMAIL
   );
@@ -800,6 +750,30 @@ function handleRejectApplication_(data) {
       rowData = rows[r];
       break;
     }
+  }
+
+  if ((targetRowIndex === -1 || !rowData) && data.application) {
+    var fallbackRejApp = data.application;
+    db.registrations.appendRow([
+      registrationId,
+      String(fallbackRejApp.schoolName || ''),
+      String(fallbackRejApp.administratorEmail || '').toLowerCase(),
+      String(fallbackRejApp.administratorName || fallbackRejApp.principalName || ''),
+      String(fallbackRejApp.contactNumber || ''),
+      String(fallbackRejApp.address || ''),
+      String(fallbackRejApp.district || ''),
+      String(fallbackRejApp.schoolType || 'School'),
+      String(fallbackRejApp.submissionDate || new Date().toISOString()),
+      'PENDING',
+      '',
+      '',
+      '',
+      String(fallbackRejApp.additionalInfo || ''),
+      String(fallbackRejApp.driveFileUrl || ''),
+      ''
+    ]);
+    targetRowIndex = db.registrations.getLastRow();
+    rowData = db.registrations.getRange(targetRowIndex, 1, 1, REGISTRATION_HEADERS.length).getValues()[0];
   }
 
   if (targetRowIndex === -1 || !rowData) {
@@ -861,7 +835,7 @@ function handleRejectApplication_(data) {
     schoolEmail,
     'JMC Classroom – School Registration Update',
     'Dear ' + contactPerson + ',\n\n' +
-      'Thank you for registering ' + schoolName + ' with JMC Classroom.\n\n' +
+      'Thank you for registering ' + schoolName + ' with JMC Classroom (' + CONFIG.PLATFORM_URL + ').\n\n' +
       'Unfortunately, your application could not be approved at this time.\n\n' +
       'Operator Notes:\n' + operatorNotes + '\n\n' +
       'Please review your submitted details and submit a new application if needed.\n\n' +
@@ -950,6 +924,113 @@ function createDatabaseBackup() {
 
   logActivity_('DATABASE_BACKUP', CONFIG.PRIMARY_OPERATOR_EMAIL, file.getId(), CONFIG.PLATFORM_NAME, 'Saved backup: ' + fileName, 'SUCCESS');
   return { success: true, fileId: file.getId(), fileUrl: file.getUrl(), fileName: fileName };
+}
+
+// ============================================================================
+// BULK SYNC FROM PLATFORM STORE / FIRESTORE TO GOOGLE SHEETS
+// ============================================================================
+function handleSyncApplications_(data) {
+  var operatorEmail = String(data.operatorEmail || data.actorEmail || CONFIG.PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
+  if (CONFIG.AUTHORIZED_OPERATORS.indexOf(operatorEmail) === -1) {
+    return createJsonResponse_({ success: false, error: 'Unauthorized: Only authorized JMC operators can sync data.' });
+  }
+
+  var folders = ensureAutomationFolders_();
+  var db = getOrCreateDatabase_(folders.rootFolder);
+  var applications = Array.isArray(data.applications) ? data.applications : [];
+  var schools = Array.isArray(data.schools) ? data.schools : [];
+
+  var regRows = db.registrations.getDataRange().getValues();
+  var regMap = {};
+  for (var r = 1; r < regRows.length; r++) {
+    var rid = String(regRows[r][0] || '').trim();
+    if (rid) regMap[rid] = r + 1;
+  }
+
+  var syncedApplications = 0;
+  for (var i = 0; i < applications.length; i++) {
+    var app = applications[i];
+    if (!app || !app.id) continue;
+    var rowVals = [
+      String(app.id),
+      String(app.schoolName || ''),
+      String(app.administratorEmail || '').toLowerCase(),
+      String(app.administratorName || app.principalName || ''),
+      String(app.contactNumber || ''),
+      String(app.address || ''),
+      String(app.district || ''),
+      String(app.schoolType || ''),
+      String(app.submissionDate || app.createdAt || ''),
+      String(app.status || 'PENDING').toUpperCase(),
+      String(app.operatorRemarks || ''),
+      String(app.approvalDate || ''),
+      String(app.approvedByEmail || app.approvedBy || ''),
+      String(app.additionalInfo || ''),
+      String(app.driveFileUrl || ''),
+      String(app.schoolId || '')
+    ];
+    if (regMap[app.id]) {
+      db.registrations.getRange(regMap[app.id], 1, 1, REGISTRATION_HEADERS.length).setValues([rowVals]);
+    } else {
+      db.registrations.appendRow(rowVals);
+      regMap[app.id] = db.registrations.getLastRow();
+    }
+    syncedApplications++;
+  }
+
+  var appRows = db.approved.getDataRange().getValues();
+  var appMap = {};
+  for (var a = 1; a < appRows.length; a++) {
+    var sid = String(appRows[a][0] || '').trim();
+    if (sid) appMap[sid] = a + 1;
+  }
+
+  var syncedSchools = 0;
+  for (var j = 0; j < schools.length; j++) {
+    var sch = schools[j];
+    if (!sch || !sch.id) continue;
+    var sVals = [
+      String(sch.id),
+      String(sch.applicationId || ''),
+      String(sch.name || sch.schoolName || ''),
+      String(sch.administratorEmail || sch.adminEmail || sch.email || '').toLowerCase(),
+      String(sch.administratorName || sch.principalName || ''),
+      String(sch.contactNumber || sch.phone || ''),
+      String(sch.address || ''),
+      String(sch.district || ''),
+      String(sch.schoolType || ''),
+      String(sch.approvedAt || sch.createdAt || ''),
+      String(sch.approvedBy || operatorEmail),
+      'Synced from JMC Classroom Platform',
+      String(sch.status || 'ACTIVE').toUpperCase()
+    ];
+    if (appMap[sch.id]) {
+      db.approved.getRange(appMap[sch.id], 1, 1, APPROVED_HEADERS.length).setValues([sVals]);
+    } else {
+      db.approved.appendRow(sVals);
+      appMap[sch.id] = db.approved.getLastRow();
+    }
+    syncedSchools++;
+  }
+
+  logActivity_(
+    'SYNC_APPLICATIONS',
+    operatorEmail,
+    db.spreadsheet.getId(),
+    CONFIG.PLATFORM_NAME,
+    'Synced ' + syncedApplications + ' applications and ' + syncedSchools + ' schools to Google Sheets.',
+    'SUCCESS'
+  );
+
+  return createJsonResponse_({
+    success: true,
+    syncedApplications: syncedApplications,
+    syncedSchools: syncedSchools,
+    rootFolderId: folders.rootFolder.getId(),
+    rootFolderUrl: folders.rootFolder.getUrl(),
+    spreadsheetId: db.spreadsheet.getId(),
+    spreadsheetUrl: db.spreadsheet.getUrl()
+  });
 }
 
 function createJsonResponse_(payload) {

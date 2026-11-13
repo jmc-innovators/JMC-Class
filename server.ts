@@ -343,7 +343,7 @@ const defaultStore: DataStore = {
   applicationDocuments: {},
   workspaceConfig: {
     configured: false,
-    primaryAccountEmail: 'innovatorsjmc@gmail.com',
+    primaryAccountEmail: 'info@jmcinnovator.cc.cd',
   },
 };
 
@@ -445,9 +445,8 @@ app.delete('/api/data/:schoolId/:collection/:id', (req, res) => {
 // -------------------------------------------------------------
 // School Registration & Operator Approval API
 // -------------------------------------------------------------
-const PRIMARY_OPERATOR_EMAIL = 'innovatorsjmc@gmail.com';
 const OPERATOR_EMAILS = [
-  'innovatorsjmc@gmail.com',
+  'info@jmcinnovator.cc.cd',
   'jmc.class2027@gmail.com',
   'operator@jmc.internal',
   'operator@jmc.com',
@@ -507,26 +506,87 @@ async function isAuthorizedOperator(req: express.Request): Promise<boolean> {
   return false;
 }
 
-// 0. Google Workspace Configuration Storage (Non-secret Drive Folder & Sheet IDs)
+// 0. Google Workspace Configuration Storage (Non-secret Drive Folder, Sheet IDs & Apps Script Web App URL)
+function isValidAppsScriptUrl(url: string): boolean {
+  const clean = String(url || '').trim();
+  return (
+    /^https:\/\/script\.google\.com\/(a\/[^/]+\/)?macros\/s\/[A-Za-z0-9_-]+\/exec(\?.*)?$/i.test(clean) ||
+    /^https:\/\/script\.googleusercontent\.com\/macros\/echo\b/i.test(clean)
+  );
+}
+
+function resolveAppsScriptUrl(store: DataStore): string {
+  const configured = String(store?.workspaceConfig?.appsScriptUrl || '').trim();
+  if (configured && isValidAppsScriptUrl(configured)) {
+    return configured;
+  }
+  const envFallback = String(process.env.GOOGLE_APPS_SCRIPT_URL || '').trim();
+  if (envFallback && isValidAppsScriptUrl(envFallback)) {
+    return envFallback;
+  }
+  return '';
+}
+
+async function callAppsScript(
+  appsScriptUrl: string,
+  payload?: Record<string, any>,
+  method: 'GET' | 'POST' = 'POST'
+): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    let targetUrl = appsScriptUrl.trim();
+    const init: RequestInit = {
+      method,
+      redirect: 'follow',
+      signal: controller.signal,
+    };
+
+    if (method === 'GET' && payload) {
+      const qs = new URLSearchParams();
+      for (const [k, v] of Object.entries(payload)) {
+        if (v !== undefined && v !== null) qs.set(k, String(v));
+      }
+      targetUrl += (targetUrl.includes('?') ? '&' : '?') + qs.toString();
+    } else if (method === 'POST') {
+      init.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
+      init.body = JSON.stringify(payload || {});
+    }
+
+    const scriptRes = await fetch(targetUrl, init);
+    const rawText = await scriptRes.text();
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      if (rawText.includes('ServiceLogin') || rawText.includes('<html') || rawText.includes('<!DOCTYPE')) {
+        throw new Error(
+          'Google Apps Script returned an HTML login/permission page. Ensure Deployment Access is set to "Anyone" and "Execute as: Me (info@jmcinnovator.cc.cd)".'
+        );
+      }
+      throw new Error(`Unexpected Apps Script response (HTTP ${scriptRes.status}).`);
+    }
+
+    if (!scriptRes.ok || parsed?.success === false) {
+      throw new Error(parsed?.error || `Apps Script returned HTTP ${scriptRes.status}.`);
+    }
+    return parsed;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 app.get('/api/workspace/config', async (req, res) => {
   if (!(await isAuthorizedOperator(req))) {
     return res.status(403).json({ error: 'Unauthorized: Operator access required.' });
   }
   const store = loadStore();
-  const cfg = store.workspaceConfig;
-  if (
-    !cfg ||
-    String(cfg.primaryAccountEmail || '').toLowerCase().trim() !== PRIMARY_OPERATOR_EMAIL ||
-    String(cfg.connectedGoogleEmail || '').toLowerCase().trim() === 'info@jmcinnovator.cc.cd'
-  ) {
-    store.workspaceConfig = {
+  res.json(
+    store.workspaceConfig || {
       configured: false,
-      primaryAccountEmail: PRIMARY_OPERATOR_EMAIL,
-    };
-    saveStore(store);
-    return res.json(store.workspaceConfig);
-  }
-  res.json(cfg);
+      primaryAccountEmail: 'info@jmcinnovator.cc.cd',
+    }
+  );
 });
 
 app.post('/api/workspace/config', async (req, res) => {
@@ -534,26 +594,187 @@ app.post('/api/workspace/config', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized: Operator access required.' });
   }
   const store = loadStore();
-  const incoming = { ...(req.body || {}) };
-  delete incoming.accessToken;
-  delete incoming.token;
-  delete incoming.refreshToken;
-  delete incoming.idToken;
-
-  const baseConfig =
-    store.workspaceConfig &&
-    String(store.workspaceConfig.primaryAccountEmail || '').toLowerCase().trim() === PRIMARY_OPERATOR_EMAIL
-      ? store.workspaceConfig
-      : {};
-
   store.workspaceConfig = {
-    ...baseConfig,
-    ...incoming,
-    primaryAccountEmail: PRIMARY_OPERATOR_EMAIL,
+    ...(store.workspaceConfig || {}),
+    ...(req.body || {}),
+    primaryAccountEmail: 'info@jmcinnovator.cc.cd',
     updatedAt: new Date().toISOString(),
   };
   saveStore(store);
   res.json(store.workspaceConfig);
+});
+
+// Serve Code.gs source directly for one-click Copy/Download in Operator Dashboard
+app.get('/api/workspace/code-gs', async (req, res) => {
+  if (!(await isAuthorizedOperator(req))) {
+    return res.status(403).json({ error: 'Unauthorized: Operator access required.' });
+  }
+  const codePath = path.resolve(__dirname, 'Code.gs');
+  if (!fs.existsSync(codePath)) {
+    return res.status(404).json({ error: 'Code.gs template file not found on server.' });
+  }
+  const code = fs.readFileSync(codePath, 'utf-8');
+  res.json({
+    filename: 'Code.gs',
+    primaryOperator: 'info@jmcinnovator.cc.cd',
+    code,
+  });
+});
+
+// Verify & Save Google Apps Script Web App URL directly (no .env required)
+app.post('/api/workspace/apps-script/verify', async (req, res) => {
+  try {
+    if (!(await isAuthorizedOperator(req))) {
+      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
+    }
+    const store = loadStore();
+    const rawUrl = String(req.body?.appsScriptUrl || store.workspaceConfig?.appsScriptUrl || '').trim();
+    if (!isValidAppsScriptUrl(rawUrl)) {
+      return res.status(400).json({
+        error: 'Please enter a valid Google Apps Script Web App URL (https://script.google.com/macros/s/.../exec).',
+      });
+    }
+
+    // 1. Verify executing Google account & info@jmcinnovator.cc.cd alias capability
+    const accountRes = await callAppsScript(rawUrl, { action: 'verifyAccount' }, 'GET');
+    // 2. Ensure Drive folders & 4-tab Sheets database are provisioned in Google Office
+    const setupRes = await callAppsScript(rawUrl, { action: 'setupWorkspace' }, 'POST');
+
+    const accountInfo = setupRes?.account || accountRes?.account || {};
+    const now = new Date().toISOString();
+
+    store.workspaceConfig = {
+      ...(store.workspaceConfig || {}),
+      configured: true,
+      primaryAccountEmail: 'info@jmcinnovator.cc.cd',
+      connectedGoogleEmail: accountInfo.effectiveEmail || store.workspaceConfig?.connectedGoogleEmail || 'info@jmcinnovator.cc.cd',
+      sendingFromEmail: accountInfo.sendFrom || 'info@jmcinnovator.cc.cd',
+      aliasMode: accountInfo.mode || store.workspaceConfig?.aliasMode || 'direct_account',
+      rootFolderId: setupRes.rootFolderId || store.workspaceConfig?.rootFolderId,
+      rootFolderUrl: setupRes.rootFolderUrl || store.workspaceConfig?.rootFolderUrl,
+      subfolders: setupRes.subfolders || store.workspaceConfig?.subfolders,
+      spreadsheetId: setupRes.spreadsheetId || store.workspaceConfig?.spreadsheetId,
+      spreadsheetUrl: setupRes.spreadsheetUrl || store.workspaceConfig?.spreadsheetUrl,
+      appsScriptUrl: rawUrl,
+      appsScriptConnected: true,
+      appsScriptAccountEmail: accountInfo.effectiveEmail || 'info@jmcinnovator.cc.cd',
+      appsScriptAliasMode: accountInfo.mode || 'direct_account',
+      appsScriptLastVerifiedAt: now,
+      updatedAt: now,
+    };
+    saveStore(store);
+
+    res.json({
+      success: true,
+      config: store.workspaceConfig,
+      account: accountInfo,
+      workspace: setupRes,
+    });
+  } catch (err: any) {
+    console.error('Apps Script verify error:', err);
+    res.status(400).json({ error: err?.message || 'Failed to verify Google Apps Script Web App URL.' });
+  }
+});
+
+app.post('/api/workspace/apps-script/disconnect', async (req, res) => {
+  if (!(await isAuthorizedOperator(req))) {
+    return res.status(403).json({ error: 'Unauthorized: Operator access required.' });
+  }
+  const store = loadStore();
+  store.workspaceConfig = {
+    ...(store.workspaceConfig || { configured: false, primaryAccountEmail: 'info@jmcinnovator.cc.cd' }),
+    appsScriptUrl: '',
+    appsScriptConnected: false,
+    appsScriptAccountEmail: '',
+    appsScriptLastVerifiedAt: '',
+    updatedAt: new Date().toISOString(),
+  };
+  saveStore(store);
+  res.json({ success: true, config: store.workspaceConfig });
+});
+
+// Run Apps Script automation actions (setupWorkspace, syncApplications, generateReport, backupDatabase)
+app.post('/api/workspace/apps-script/action', async (req, res) => {
+  try {
+    if (!(await isAuthorizedOperator(req))) {
+      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
+    }
+    const store = loadStore();
+    const appsScriptUrl = resolveAppsScriptUrl(store);
+    if (!appsScriptUrl) {
+      return res.status(400).json({
+        error: 'Google Apps Script Web App URL is not configured yet. Paste and verify your Web App URL first.',
+      });
+    }
+
+    const action = String(req.body?.action || '').trim();
+    const allowedActions = ['setupWorkspace', 'syncApplications', 'generateReport', 'backupDatabase'];
+    if (!allowedActions.includes(action)) {
+      return res.status(400).json({ error: `Unsupported Apps Script action: ${action}` });
+    }
+
+    const operatorEmail = String(
+      req.headers['x-actor-email'] || req.body?.operatorEmail || 'info@jmcinnovator.cc.cd'
+    )
+      .toLowerCase()
+      .trim();
+
+    let payload: Record<string, any> = { action, operatorEmail };
+
+    if (action === 'syncApplications') {
+      // Merge server store records with any Firestore-fetched records passed by the operator client
+      const mergedAppsMap = new Map<string, any>();
+      for (const a of Object.values(store.schoolApplications || {})) {
+        if (a?.id) mergedAppsMap.set(a.id, a);
+      }
+      if (Array.isArray(req.body?.applications)) {
+        for (const a of req.body.applications) {
+          if (a?.id) mergedAppsMap.set(a.id, a);
+        }
+      }
+
+      const mergedSchoolsMap = new Map<string, any>();
+      for (const s of Object.values(store.schools || {})) {
+        if (s?.id) mergedSchoolsMap.set(s.id, s);
+      }
+      if (Array.isArray(req.body?.schools)) {
+        for (const s of req.body.schools) {
+          if (s?.id) mergedSchoolsMap.set(s.id, s);
+        }
+      }
+
+      payload = {
+        ...payload,
+        applications: Array.from(mergedAppsMap.values()),
+        schools: Array.from(mergedSchoolsMap.values()),
+      };
+    }
+
+    const result = await callAppsScript(appsScriptUrl, payload, 'POST');
+    const now = new Date().toISOString();
+
+    const updatedConfig = {
+      ...(store.workspaceConfig || { configured: true, primaryAccountEmail: 'info@jmcinnovator.cc.cd' }),
+      configured: true,
+      appsScriptConnected: true,
+      ...(result.rootFolderId ? { rootFolderId: result.rootFolderId } : {}),
+      ...(result.rootFolderUrl ? { rootFolderUrl: result.rootFolderUrl } : {}),
+      ...(result.subfolders ? { subfolders: result.subfolders } : {}),
+      ...(result.spreadsheetId ? { spreadsheetId: result.spreadsheetId } : {}),
+      ...(result.spreadsheetUrl ? { spreadsheetUrl: result.spreadsheetUrl } : {}),
+      ...(action === 'syncApplications' ? { lastSyncedAt: now } : {}),
+      ...(action === 'generateReport' && result.fileUrl ? { lastReportUrl: result.fileUrl } : {}),
+      ...(action === 'backupDatabase' && result.fileUrl ? { lastBackupUrl: result.fileUrl } : {}),
+      updatedAt: now,
+    };
+    store.workspaceConfig = updatedConfig;
+    saveStore(store);
+
+    res.json({ success: true, action, result, config: updatedConfig });
+  } catch (err: any) {
+    console.error('Apps Script action error:', err);
+    res.status(500).json({ error: err?.message || 'Apps Script automation action failed.' });
+  }
 });
 
 // 1. Submit School Application
@@ -649,14 +870,13 @@ app.post('/api/school-applications', async (req, res) => {
       };
     }
 
-    // Forward to Google Apps Script Web App if configured
-    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+    // Forward to Google Apps Script Web App if configured in Operator Dashboard (or optional env)
+    const appsScriptUrl = resolveAppsScriptUrl(store);
     if (appsScriptUrl) {
       try {
-        const scriptRes = await fetch(appsScriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const scriptJson: any = await callAppsScript(
+          appsScriptUrl,
+          {
             action: 'register',
             id: applicationId,
             schoolName: schoolName.trim(),
@@ -672,15 +892,13 @@ app.post('/api/school-applications', async (req, res) => {
             additionalInfo: (additionalInfo || '').trim(),
             submissionDate,
             ...(documentFile?.base64Data ? { documentFile } : {}),
-          }),
-        });
-        if (scriptRes.ok) {
-          const scriptJson: any = await scriptRes.json().catch(() => null);
-          if (scriptJson?.driveFileUrl) {
-            driveFileId = scriptJson.driveFileId || '';
-            driveFileUrl = scriptJson.driveFileUrl;
-            hasPendingDocumentUpload = false;
-          }
+          },
+          'POST'
+        );
+        if (scriptJson?.driveFileUrl) {
+          driveFileId = scriptJson.driveFileId || '';
+          driveFileUrl = scriptJson.driveFileUrl;
+          hasPendingDocumentUpload = false;
         }
       } catch (scriptErr) {
         console.warn('Apps Script forward notice:', scriptErr);
@@ -741,7 +959,7 @@ app.get('/api/school-applications/:id/document', async (req, res) => {
 app.get('/api/school-applications', async (req, res) => {
   try {
     if (!(await isAuthorizedOperator(req))) {
-      return res.status(403).json({ error: `Unauthorized: Operator access required (${PRIMARY_OPERATOR_EMAIL}).` });
+      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
     }
     const store = loadStore();
     const applications = Object.values(store.schoolApplications || {}).sort((a: any, b: any) =>
@@ -758,7 +976,7 @@ app.get('/api/school-applications', async (req, res) => {
 app.post('/api/school-applications/:id/approve', async (req, res) => {
   try {
     if (!(await isAuthorizedOperator(req))) {
-      return res.status(403).json({ error: `Unauthorized: Operator access required (${PRIMARY_OPERATOR_EMAIL}).` });
+      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
     }
 
     const { id } = req.params;
@@ -795,7 +1013,7 @@ app.post('/api/school-applications/:id/approve', async (req, res) => {
     const schoolId = `SCH-${cleanPrefix}-${Date.now().toString(36).toUpperCase()}`;
     const approvalDate = new Date().toISOString();
     const operatorRemarks = req.body.operatorRemarks || 'Approved by Platform Operator';
-    const approvedByEmail = String(req.body.operatorEmail || req.headers['x-actor-email'] || PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
+    const approvedByEmail = String(req.body.operatorEmail || req.headers['x-actor-email'] || 'info@jmcinnovator.cc.cd').toLowerCase().trim();
     const approvedByName = String(req.body.operatorName || approvedByEmail);
 
     // 1. Update Application Record
@@ -835,22 +1053,25 @@ app.post('/api/school-applications/:id/approve', async (req, res) => {
     store.schools[schoolId] = newSchool;
     saveStore(store);
 
-    // 3. Sync to Google Apps Script (Updates Google Sheet and sends Automatic Approval Email)
-    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+    // 3. Sync to Google Apps Script (Updates Google Sheet and sends Automatic Approval Email via info@jmcinnovator.cc.cd)
+    const appsScriptUrl = resolveAppsScriptUrl(store);
+    let appsScriptSynced = false;
     if (appsScriptUrl) {
       try {
-        await fetch(appsScriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        await callAppsScript(
+          appsScriptUrl,
+          {
             action: 'approveApplication',
             applicationId: id,
             schoolId,
             operatorRemarks,
             operatorEmail: approvedByEmail,
             operatorName: approvedByName,
-          }),
-        });
+            application: appRecord,
+          },
+          'POST'
+        );
+        appsScriptSynced = true;
       } catch (scriptErr) {
         console.warn('Apps Script approve sync notice:', scriptErr);
       }
@@ -864,6 +1085,7 @@ app.post('/api/school-applications/:id/approve', async (req, res) => {
       status: 'APPROVED',
       approvedAt: approvalDate,
       approvedBy: approvedByEmail,
+      appsScriptSynced,
       school: newSchool,
       application: appRecord,
     });
@@ -877,7 +1099,7 @@ app.post('/api/school-applications/:id/approve', async (req, res) => {
 app.post('/api/school-applications/:id/reject', async (req, res) => {
   try {
     if (!(await isAuthorizedOperator(req))) {
-      return res.status(403).json({ error: `Unauthorized: Operator access required (${PRIMARY_OPERATOR_EMAIL}).` });
+      return res.status(403).json({ error: 'Unauthorized: Operator access required (info@jmcinnovator.cc.cd).' });
     }
 
     const { id } = req.params;
@@ -900,8 +1122,6 @@ app.post('/api/school-applications/:id/reject', async (req, res) => {
     }
 
     const operatorRemarks = req.body.operatorRemarks || 'Application did not meet verification criteria.';
-    const rejectedByEmail = String(req.body.operatorEmail || req.headers['x-actor-email'] || PRIMARY_OPERATOR_EMAIL).toLowerCase().trim();
-    const rejectedByName = String(req.body.operatorName || rejectedByEmail);
     const rejectionDate = new Date().toISOString();
 
     appRecord.status = 'REJECTED';
@@ -910,21 +1130,26 @@ app.post('/api/school-applications/:id/reject', async (req, res) => {
     store.schoolApplications[id] = appRecord;
     saveStore(store);
 
-    // Sync to Google Apps Script (Updates Google Sheet and sends Rejection Email)
-    const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+    // Sync to Google Apps Script (Updates Google Sheet and sends Rejection Email via info@jmcinnovator.cc.cd)
+    const appsScriptUrl = resolveAppsScriptUrl(store);
+    let appsScriptSynced = false;
     if (appsScriptUrl) {
       try {
-        await fetch(appsScriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        await callAppsScript(
+          appsScriptUrl,
+          {
             action: 'rejectApplication',
             applicationId: id,
             operatorRemarks,
-            operatorEmail: rejectedByEmail,
-            operatorName: rejectedByName,
-          }),
-        });
+            operatorEmail: String(req.body?.operatorEmail || req.headers['x-actor-email'] || 'info@jmcinnovator.cc.cd')
+              .toLowerCase()
+              .trim(),
+            operatorName: String(req.body?.operatorName || 'JMC Platform Operator'),
+            application: appRecord,
+          },
+          'POST'
+        );
+        appsScriptSynced = true;
       } catch (scriptErr) {
         console.warn('Apps Script reject sync notice:', scriptErr);
       }
@@ -936,6 +1161,7 @@ app.post('/api/school-applications/:id/reject', async (req, res) => {
       applicationId: id,
       status: 'REJECTED',
       operatorRemarks,
+      appsScriptSynced,
       application: appRecord,
     });
   } catch (err: any) {

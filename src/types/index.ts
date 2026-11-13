@@ -65,8 +65,11 @@ export interface GoogleWorkspaceConfig {
   subfolders?: GoogleWorkspaceSubfolders;
   spreadsheetId?: string;
   spreadsheetUrl?: string;
-  apiVerified?: boolean;
-  lastTestedAt?: string;
+  appsScriptUrl?: string;
+  appsScriptConnected?: boolean;
+  appsScriptAccountEmail?: string;
+  appsScriptAliasMode?: 'direct_account' | 'verified_send_as_alias' | 'reply_to_fallback';
+  appsScriptLastVerifiedAt?: string;
   lastSyncedAt?: string;
   lastReportUrl?: string;
   lastBackupUrl?: string;
@@ -76,11 +79,6 @@ export interface GoogleWorkspaceConfig {
 export interface WorkspaceVerificationResult {
   connectedEmail: string;
   targetAccountEmail: string;
-  accountMatchesPrimary: boolean;
-  driveApiOk: boolean;
-  sheetsApiOk: boolean;
-  gmailApiOk: boolean;
-  gmailSendVerified?: boolean;
   canAuthorizeDriveAndSheets: boolean;
   canSendEmail: boolean;
   aliasMode: 'direct_account' | 'verified_send_as_alias' | 'reply_to_fallback';
@@ -91,12 +89,6 @@ export interface WorkspaceVerificationResult {
     isPrimary?: boolean;
     verificationStatus?: string;
   }>;
-  apiErrors?: {
-    drive?: string;
-    sheets?: string;
-    gmail?: string;
-  };
-  testedAt: string;
   message: string;
 }
 
