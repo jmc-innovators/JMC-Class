@@ -956,13 +956,46 @@ app.get('/api/health/firestore', async (_req, res) => {
 // -------------------------------------------------------------
 // SEO, Search Console Indexing & AI Discovery Endpoints
 // -------------------------------------------------------------
-function resolveOrigin(req: express.Request): string {
-  if (process.env.APP_URL) {
-    return process.env.APP_URL.replace(/\/+$/, '');
-  }
-  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
-  const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'class-jmc.vercel.app').split(',')[0].trim();
-  return `${proto}://${host}`;
+const CANONICAL_SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://jmcinnovator.cc.cd').replace(/\/+$/, '');
+
+function resolveOrigin(_req?: express.Request): string {
+  return CANONICAL_SITE_URL;
+}
+
+async function listAllSchoolIdsForSitemap(): Promise<string[]> {
+  const store = loadStore();
+  const ids = new Set<string>(
+    Object.values(store.schools || {})
+      .filter((s: any) => s && s.id)
+      .map((s: any) => String(s.id))
+  );
+
+  try {
+    let projectId = 'gen-lang-client-0883116641';
+    let databaseId = 'ai-studio-jmcclass-20742766-c8cd-4030-95f3-22ca7c7d152d';
+    const configPath = path.resolve(__dirname, 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (cfg.projectId) projectId = cfg.projectId;
+      if (cfg.firestoreDatabaseId) databaseId = cfg.firestoreDatabaseId;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    const fsUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/schools`;
+    const fsRes = await fetch(fsUrl, { signal: controller.signal });
+    clearTimeout(timer);
+    if (fsRes.ok) {
+      const data: any = await fsRes.json();
+      const docs = Array.isArray(data?.documents) ? data.documents : [];
+      for (const d of docs) {
+        const namePath = String(d?.name || '');
+        const docId = namePath.split('/').pop();
+        if (docId) ids.add(docId);
+      }
+    }
+  } catch {}
+
+  return Array.from(ids);
 }
 
 function escapeHtmlAttr(value: string): string {
@@ -1171,17 +1204,15 @@ function injectSchoolSeoIntoHtml(html: string, school: any, origin: string): str
   return updated;
 }
 
-app.get('/sitemap.xml', (req, res) => {
+app.get('/sitemap.xml', async (req, res) => {
   const origin = resolveOrigin(req);
   const lastmod = new Date().toISOString().slice(0, 10);
-  const store = loadStore();
-  const schoolUrls = Object.values(store.schools || {})
-    .filter((s: any) => s && s.id)
-    .map((s: any) => ({
-      loc: `${origin}/schools/${encodeURIComponent(s.id)}`,
-      changefreq: 'weekly',
-      priority: '0.9',
-    }));
+  const schoolIds = await listAllSchoolIdsForSitemap();
+  const schoolUrls = schoolIds.map((id) => ({
+    loc: `${origin}/schools/${encodeURIComponent(id)}`,
+    changefreq: 'weekly',
+    priority: '0.9',
+  }));
 
   const urls = [
     { loc: `${origin}/`, changefreq: 'daily', priority: '1.0' },

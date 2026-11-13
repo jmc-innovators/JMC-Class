@@ -10,7 +10,7 @@
 - **Platform Name**: JMC Innovators Learning Platform (JMC Classroom)
 - **Origin School**: Jaffna Mahajana College, Tellippalai, Jaffna, Northern Province, Sri Lanka
 - **Official Showcase Website**: https://jmcinnovators.netlify.app/
-- **Classroom Web Platform**: https://class-jmc.vercel.app/
+- **Classroom Web Platform**: https://jmcinnovator.cc.cd/
 - **Official Contact & Operator Email**: info@jmcinnovator.cc.cd
 
 ## Key Platform Capabilities
@@ -23,7 +23,7 @@
 
 ## Canonical Links
 
-- [JMC Innovators Learning Platform](https://class-jmc.vercel.app/): Main JMC Classroom application
-- [Owners & Creators Document](/OWNERS.md): Official ownership, creators, school background, and recognition details
+- [JMC Innovators Learning Platform](https://jmcinnovator.cc.cd/): Main JMC Classroom application
+- [Owners & Creators Document](https://jmcinnovator.cc.cd/OWNERS.md): Official ownership, creators, school background, and recognition details
 - [JMC Innovators Website](https://jmcinnovators.netlify.app/): JMC Innovators innovation showcase and team achievements
-- [XML Sitemap](/sitemap.xml): Full indexable URL manifest including individual school pages
+- [XML Sitemap](https://jmcinnovator.cc.cd/sitemap.xml): Full indexable URL manifest including individual school pages

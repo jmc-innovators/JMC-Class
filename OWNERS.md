@@ -2,8 +2,8 @@
 
 ## Project Overview
 
-- **Platform Name**: JMC Classroom — School Management & Learning Platform
-- **Primary Web App**: https://class-jmc.vercel.app/
+- **Platform Name**: JMC Innovators Learning Platform (JMC Classroom)
+- **Primary Web App**: https://jmcinnovator.cc.cd/
 - **JMC Innovators Official Showcase**: https://jmcinnovators.netlify.app/
 - **Official Contact Email**: info@jmcinnovator.cc.cd
 - **Google Search Console Verification**: `Wo_BBKOK9a8fne-ViQT_RADm0ssMIoyc60Upow2MtjE`

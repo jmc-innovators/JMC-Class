@@ -4,11 +4,10 @@ const DEFAULT_TITLE = 'JMC Innovators Learning Platform — JMC Classroom';
 const DEFAULT_DESCRIPTION =
   'JMC Innovators Learning Platform (JMC Classroom) — Sri Lankan Grade 6-11 school management and online learning platform with school pages, classrooms, assignments, attendance, and assessments.';
 
+const CANONICAL_ORIGIN = 'https://jmcinnovator.cc.cd';
+
 function resolveBaseOrigin(): string {
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin.replace(/\/+$/, '');
-  }
-  return 'https://class-jmc.vercel.app';
+  return CANONICAL_ORIGIN;
 }
 
 function setMetaTag(attr: 'name' | 'property', key: string, content: string): void {

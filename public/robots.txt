@@ -87,4 +87,4 @@ Disallow: /api/data/
 Disallow: /api/school-applications
 Disallow: /api/workspace/
 
-Sitemap: https://class-jmc.vercel.app/sitemap.xml
+Sitemap: https://jmcinnovator.cc.cd/sitemap.xml
