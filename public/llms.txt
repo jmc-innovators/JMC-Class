@@ -12,7 +12,7 @@
 - **Official Showcase Website**: https://jmcinnovators.netlify.app/
 - **Classroom Web Platform**: https://jmcinnovator.cc.cd/
 - **Official Website Contact**: info@jmcinnovator.cc.cd
-- **Platform Automation Operator**: innovatorsjmc@gmail.com
+- **Platform Automation Operator**: info@jmcinnovator.cc.cd
 
 ## Key Platform Capabilities
 

@@ -9,8 +9,30 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function resolveServerPort(): number {
+  const portFlagIdx = process.argv.indexOf('--port');
+  if (portFlagIdx !== -1 && process.argv[portFlagIdx + 1]) {
+    const cliPort = parseInt(process.argv[portFlagIdx + 1], 10);
+    if (!Number.isNaN(cliPort) && cliPort > 0) return cliPort;
+  }
+  const eqFlag = process.argv.find((a) => a.startsWith('--port='));
+  if (eqFlag) {
+    const cliPort = parseInt(eqFlag.slice('--port='.length), 10);
+    if (!Number.isNaN(cliPort) && cliPort > 0) return cliPort;
+  }
+  if (process.env.PORT && process.env.PORT !== process.env.NGINX_PORT) {
+    const envPort = parseInt(process.env.PORT, 10);
+    if (!Number.isNaN(envPort) && envPort > 0) return envPort;
+  }
+  if (process.env.DEFAULT_APP_PORT) {
+    const defaultPort = parseInt(process.env.DEFAULT_APP_PORT, 10);
+    if (!Number.isNaN(defaultPort) && defaultPort > 0) return defaultPort;
+  }
+  return 3000;
+}
+
 const app = express();
-const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const port = resolveServerPort();
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -1523,15 +1545,15 @@ app.get('/llms.txt', (_req, res) => {
 // Mount Vite middleware in development mode
 async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
-  let vite: any = null;
 
-  if (!isProd) {
-    const { createServer: createViteServer } = await import('vite');
-    vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-  }
+  const vitePromise: Promise<any> = !isProd
+    ? import('vite').then(({ createServer: createViteServer }) =>
+        createViteServer({
+          server: { middlewareMode: true, hmr: false, ws: false },
+          appType: 'spa',
+        })
+      )
+    : Promise.resolve(null);
 
   // Server-rendered meta description & Schema.org markup for individual school pages
   app.get('/schools/:schoolId', async (req, res, next) => {
@@ -1547,30 +1569,62 @@ async function startServer() {
       }
 
       let template = fs.readFileSync(htmlPath, 'utf-8');
+      const vite = await vitePromise;
       if (vite) {
         template = await vite.transformIndexHtml(req.originalUrl, template);
       }
 
       const school = await fetchSchoolForSeo(schoolId);
       const outputHtml = school ? injectSchoolSeoIntoHtml(template, school, origin) : template;
-      return res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).end(outputHtml);
+      return res
+        .status(200)
+        .set({
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        })
+        .end(outputHtml);
     } catch (err) {
       return next(err);
     }
   });
 
-  if (!isProd && vite) {
-    app.use(vite.middlewares);
+  if (!isProd) {
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await vitePromise;
+        if (vite) {
+          return vite.middlewares(req, res, next);
+        }
+        return next();
+      } catch (err) {
+        return next(err);
+      }
+    });
   } else {
-    // In production, serve built static files
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+    // In production, serve built static files with no-cache on HTML entrypoints
+    app.use(
+      express.static(path.resolve(__dirname, 'dist'), {
+        setHeaders(res, filePath) {
+          if (filePath.endsWith('index.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        },
+      })
+    );
     app.get('*', (_req, res) => {
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
   }
 
   app.listen(port, '0.0.0.0', () => {
     console.log(`JMC Classroom server running at http://0.0.0.0:${port}`);
+  });
+
+  vitePromise.catch((err) => {
+    console.error('Failed to initialize Vite dev middleware:', err);
   });
 }
 

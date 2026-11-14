@@ -1,156 +1,69 @@
-# JMC Classroom — Production-Grade School Management & Learning Platform
+# JMC Innovators Learning Platform — JMC Classroom (v2.0.0)
 
-A real, production-ready school management and online learning platform for Grade 6–11 with Cloud Firestore as the single source of truth, real role-based access control (RBAC), and server-side Gemini curriculum intelligence.
+A production-ready Sri Lankan Grade 6–11 school management and online learning platform powered by Cloud Firestore, Firebase Auth, server-side Gemini curriculum intelligence, dynamic School SEO pages (`/schools/:schoolId`), and zero-environment-variable Google Workspace / Apps Script automation.
 
----
-
-## 1. Firebase Project Used
-
-- **Project ID**: `jmc-class`
-- **Auth Domain**: `jmc-class.firebaseapp.com`
-- **Storage Bucket**: `jmc-class.firebasestorage.app`
-- **Messaging Sender ID**: `264700474615`
-- **Web App ID**: `1:264700474615:web:701719833c85d135a78ff2`
+- **Canonical Website**: https://jmcinnovator.cc.cd/
+- **Primary Operator & Automation Account**: `info@jmcinnovator.cc.cd`
+- **Owners & Creators**: See `/OWNERS.md` (AI & search discovery metadata)
 
 ---
 
-## 2. Required Firebase Services
+## 1. Firebase Project Configuration
 
-1. **Firebase Authentication**: Google Sign-in enabled (with optional email fallback).
-2. **Cloud Firestore**: Enterprise/Standard Firestore database storing all application state.
-3. **Firebase Storage**: Secure asset store for attachments, documents, and logos.
-4. **Firebase Security Rules**: Hardened ABAC enforcement.
+Configured in `firebase-applet-config.json`:
 
----
-
-## 3. Authentication Setup
-
-- **Google Sign-In**: Primary identity provider using `signInWithPopup`.
-- **User Profile Bootstrap**:
-  - Every authenticated account automatically provisions or updates its `/users/{uid}` document.
-  - Role resolution is performed via `/invites/{email}` or pre-assigned role flags, preventing unauthorized client self-promotion.
-  - Platform Operator bootstrap: `jmc.class2027@gmail.com` and `operator@jmc.internal` are automatically assigned the `operator` role.
+- **Project ID**: `gen-lang-client-0883116641`
+- **Firestore Database ID**: `ai-studio-jmcclass-20742766-c8cd-4030-95f3-22ca7c7d152d`
+- **Auth Domain**: `gen-lang-client-0883116641.firebaseapp.com`
+- **Storage Bucket**: `gen-lang-client-0883116641.firebasestorage.app`
 
 ---
 
-## 4. Firestore Architecture & Collections
+## 2. Google Workspace & Apps Script Automation (Zero `.env` Variables)
 
-Authoritative schema modeled in `firebase-blueprint.json`:
-
-```
-users/{uid}                                             -> User profile & global role
-invites/{email}                                         -> Email invitation to role mapping
-schools/{schoolId}                                      -> School institution records
-schools/{schoolId}/classes/{classId}                    -> Classrooms with 6-letter join codes
-schools/{schoolId}/classes/{classId}/students/{student} -> Enrolled student cohorts
-schools/{schoolId}/teachers/{teacherId}                 -> Teacher staff records
-schools/{schoolId}/students/{studentId}                 -> School student roster
-schools/{schoolId}/parents/{parentId}                   -> Registered parent accounts & student links
-schools/{schoolId}/assignments/{assignmentId}           -> Coursework, worksheets, homework
-schools/{schoolId}/submissions/{submissionId}           -> Student submissions, marks, teacher feedback
-schools/{schoolId}/attendance/{attendanceId}            -> Daily attendance sessions (prevents duplicates)
-schools/{schoolId}/results/{resultId}                   -> Examination marks, report cards
-schools/{schoolId}/timetables/{timetableId}             -> Weekly period schedules
-schools/{schoolId}/announcements/{announcementId}       -> Targeted school announcements
-schools/{schoolId}/messages/{messageId}                 -> Direct communication
-schools/{schoolId}/auditLogs/{logId}                    -> Immutable administrative audit trail
-```
+1. Sign in to the **Platform Operator Dashboard** as **`info@jmcinnovator.cc.cd`**.
+2. Open **Google Workspace Automation**.
+3. Copy or download **`Code.gs`**, deploy it as a Web App from `script.google.com` as `info@jmcinnovator.cc.cd` (*Execute as: Me*, *Who has access: Anyone*), and paste the `/exec` URL directly in the Operator Dashboard.
+4. No `.env` variables are needed — the Web App URL and Drive/Sheet IDs are stored securely in Cloud Firestore (`system_config/google_workspace`) and the server store.
 
 ---
 
-## 5. Storage Structure
+## 3. SEO, Sitemap & School Discovery
 
-- `schools/{schoolId}/logos/*`: School institution logos.
-- `schools/{schoolId}/assignments/{assignmentId}/*`: Teacher reference attachments.
-- `schools/{schoolId}/submissions/{submissionId}/*`: Student uploaded documents.
-
----
-
-## 6. Security Rules
-
-Configured in `firestore.rules` and `storage.rules`:
-- Default-deny architecture.
-- Role-based gates: `isOperator()`, `isSchoolAdmin(schoolId)`, `isTeacher(schoolId)`, `isSchoolMember(schoolId)`.
-- Client role spoofing prevention: Users cannot update their own `role` or `schoolId`.
-- Submissions can only be graded by assigned teachers or school admins.
-- Attendance sessions prevent duplicate overwrite via deterministic session IDs.
-- Audit logs are append-only and immutable.
+- **Dynamic Sitemap**: `/sitemap.xml` (merges registered schools with canonical `https://jmcinnovator.cc.cd/` routes)
+- **Robots & AI Crawlers**: `/robots.txt`, `/llms.txt`, `/OWNERS.md`, `/owners.md`
+- **Individual School Pages**: `/schools/:schoolId` renders per-school `<title>`, `<meta name="description">`, OpenGraph tags, and Schema.org `School` / `EducationalOrganization` / `BreadcrumbList` JSON-LD server-side and client-side.
 
 ---
 
-## 7. Indexes
-
-Configured in `firestore.indexes.json` for compound queries where necessary.
-
----
-
-## 8. Environment Variables
-
-Defined in `.env.example`:
+## 4. Environment Variables (`.env.example`)
 
 ```bash
-# Gemini API Key (injected server-side)
-GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-
-# Development & App URL
-APP_URL="http://localhost:3000"
+GEMINI_API_KEY=
+VITE_FIREBASE_API_KEY=
 PORT=3000
+PUBLIC_SITE_URL=https://jmcinnovator.cc.cd
 ```
 
 ---
 
-## 9. Local Development
+## 5. Local Development & Full-Stack Run
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Start full-stack server (Express + Vite middlewares):
-   ```bash
-   npm run dev
-   ```
-3. Open `http://localhost:3000` in your browser.
+```bash
+npm install
+npm run dev      # Express + Vite middleware on port 3000
+npm run build    # Production bundle output to dist/
+npm start        # Production server (node server.ts)
+```
 
 ---
 
-## 10. Production Deployment & Vercel Drag-and-Drop (https://class-jmc.vercel.app)
+## 6. Pushing Live Updates (GitHub, Node.js Host, Vercel, or Netlify)
 
-### Method A: Vercel Drag & Drop (Instant)
-1. Open **[https://vercel.com/new](https://vercel.com/new)**.
-2. Drag and drop either:
-   - The entire project folder, **or**
-   - The compiled `dist/` folder (run `npm run build` first).
-3. Vercel loads settings automatically from `vercel.json` (rewriting all SPA routes to `/index.html` and routing `/api/*` to Vercel Serverless Functions).
-4. Assign the domain: `class-jmc.vercel.app`.
+1. **In AI Studio**: Edits appear immediately on the **Development App URL**. To update the **Shared App URL**, click **Share / Republish** in AI Studio.
+2. **In GitHub / Vercel / Netlify (`https://jmcinnovator.cc.cd/`)**:
+   - Export/push all updated files (especially `src/`, `server.ts`, `public/`, `index.html`, `package.json`, `vercel.json`, `netlify.toml`, `Code.gs`) to your GitHub repository.
+   - Ensure your host runs `npm run build` (full-stack hosts run `npm run build && npm start` with Node `server.ts`).
+   - Hard-refresh (`Ctrl+Shift+R` / `Cmd+Shift+R`) after deployment completes; `vercel.json` and `netlify.toml` enforce `no-cache` on `index.html` so new builds load immediately.
+   - Verify `jmcinnovator.cc.cd` is listed in **Firebase Console → Authentication → Settings → Authorized domains**.
 
-### Method B: Full-Stack Node / Docker
-1. Build static and client assets:
-   ```bash
-   npm run build
-   ```
-2. Start Node server:
-   ```bash
-   npm start
-   ```
-
----
-
-## 11. Role Setup Workflows
-
-### Administrator Setup
-1. The Platform Operator creates a school via the **Operator Dashboard** and enters the administrator's Google email.
-2. The School Administrator signs in with that Google account to access the **School Admin Dashboard**.
-3. Admin can configure classes, create student join codes, invite teachers, and manage school profile.
-
-### Teacher Setup
-1. The School Admin adds a teacher with their Google email and primary subjects in **School Admin -> Teachers**.
-2. Teacher signs in using that Google email to access the **Teacher Portal**.
-3. Teacher can post lesson notes, issue assignments, mark daily attendance, and record exam marks.
-
-### Student Setup
-1. **Direct Registration**: School Admin enrolls the student under **School Admin -> Students**.
-2. **Self-Enrollment by Code**: Student visits the landing page, clicks "Join with Code", enters student name and the 6-letter class code (e.g. `AB3X9K`). The system links them in Firestore immediately.
-
-### Parent Setup
-1. School Admin links parent Google email to the student admission record.
-2. Parent logs in to track daily attendance percentage, homework submission status, and exam report cards in real-time.

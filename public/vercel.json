@@ -1,5 +1,25 @@
 {
   "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(index\\.html|sitemap\\.xml|robots\\.txt|OWNERS\\.md|owners\\.md|llms\\.txt|site\\.webmanifest)?",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/|assets/|sitemap\\.xml|robots\\.txt|OWNERS\\.md|owners\\.md|llms\\.txt|site\\.webmanifest|favicon\\.ico|favicon\\.svg|favicon-16x16\\.png|favicon-32x32\\.png|apple-touch-icon\\.png|android-chrome-192x192\\.png|android-chrome-512x512\\.png|og-image\\.jpg).*)",
