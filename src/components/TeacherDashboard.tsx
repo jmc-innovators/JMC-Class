@@ -16,7 +16,6 @@ import {
   BookOpen,
   Calendar,
   CheckCircle,
-  Clock,
   Sparkles,
   Award,
   Plus,
@@ -25,9 +24,8 @@ import {
   Check,
   FileText,
   UserCheck,
-  AlertCircle,
-  HelpCircle,
 } from 'lucide-react';
+import { AiThinkingSkeleton, InlineSpinner } from './PageLoader';
 
 interface TeacherDashboardProps {
   user: UserProfile;
@@ -117,6 +115,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [aiInstructions, setAiInstructions] = useState('');
   const [aiOutput, setAiOutput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiCopied, setAiCopied] = useState(false);
 
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -169,7 +168,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       } else if (data.error) {
         setAiOutput(`Notice: ${data.error}`);
       }
-    } catch (err) {
+    } catch {
       setAiOutput('Error connecting to Gemini AI assistant.');
     } finally {
       setAiLoading(false);
@@ -187,29 +186,29 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   return (
     <div className="space-y-6">
       {/* Teacher Top Header */}
-      <div className="p-6 rounded-2xl bg-[#121726] border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+          <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
             Teacher Portal
           </span>
-          <h1 className="text-xl sm:text-2xl font-bold text-white font-['Plus_Jakarta_Sans'] mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 font-['Plus_Jakarta_Sans'] mt-1.5">
             Welcome, {teacher?.name || user.displayName || 'Teacher'}
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-600 mt-0.5">
             {school.name} · Subjects:{' '}
-            <b className="text-emerald-400">{(teacher?.subjects || ['All']).join(', ')}</b>
+            <b className="text-emerald-700">{(teacher?.subjects || ['All']).join(', ')}</b>
           </p>
         </div>
 
         {/* Classroom Selector */}
         {classes.length > 0 && (
-          <div className="flex items-center gap-2 bg-[#171d2e] p-2 rounded-xl border border-white/5">
-            <span className="text-xs text-slate-400 font-medium pl-2">Cohort:</span>
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+            <span className="text-xs text-slate-600 font-medium pl-2">Cohort:</span>
             <select
               value={activeClass?.id}
               onChange={(e) => setSelectedClassId(e.target.value)}
               aria-label="Select classroom cohort"
-              className="bg-[#1f263c] border border-white/10 rounded-lg text-xs text-white px-3 py-1.5 focus:outline-none focus:border-blue-500 font-semibold"
+              className="bg-white border border-slate-300 rounded-lg text-xs text-slate-900 px-3 py-1.5 focus:outline-none focus:border-blue-600 font-semibold"
             >
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -222,11 +221,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <button
                 onClick={() => copyCode(activeClass.code)}
                 title="Copy student join code"
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 font-mono text-xs font-bold transition-all border border-blue-500/30"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-mono text-xs font-bold transition-all border border-blue-200"
               >
                 <span>{activeClass.code}</span>
                 {copiedCode === activeClass.code ? (
-                  <Check className="w-3 h-3 text-emerald-400" />
+                  <Check className="w-3 h-3 text-emerald-600" />
                 ) : (
                   <Copy className="w-3 h-3" />
                 )}
@@ -237,13 +236,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/10 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2.5 border-b border-slate-200 scrollbar-none">
         <button
           onClick={() => setActiveTab('stream')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
             activeTab === 'stream'
-              ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <BookOpen className="w-4 h-4" /> Class Stream
@@ -252,8 +251,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           onClick={() => setActiveTab('assignments')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
             activeTab === 'assignments'
-              ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <FileText className="w-4 h-4" /> Assignments &amp; Grading
@@ -262,8 +261,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           onClick={() => setActiveTab('attendance')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
             activeTab === 'attendance'
-              ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Calendar className="w-4 h-4" /> Daily Attendance
@@ -272,8 +271,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           onClick={() => setActiveTab('results')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
             activeTab === 'results'
-              ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Award className="w-4 h-4" /> Marks &amp; Assessments
@@ -282,11 +281,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           onClick={() => setActiveTab('ai')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
             activeTab === 'ai'
-              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <Sparkles className="w-4 h-4 text-indigo-400" /> AI Lesson Assistant
+          <Sparkles className="w-4 h-4 text-indigo-600" /> AI Lesson Assistant
         </button>
       </div>
 
@@ -294,23 +293,23 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       {activeTab === 'stream' && (
         <div className="space-y-4 max-w-4xl">
           {/* Post to Stream Card */}
-          <div className="p-5 rounded-2xl bg-[#111624] border border-white/5 space-y-3">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Send className="w-3.5 h-3.5 text-blue-400" /> Share Announcement or Lesson Notes to {activeClass?.name}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Send className="w-3.5 h-3.5 text-blue-600" /> Share Announcement or Lesson Notes to {activeClass?.name}
             </h3>
             <input
               type="text"
-              placeholder="Post title or topic (e.g. Lesson 4: Photosynthesis &amp; Plant Nutrition)"
+              placeholder="Post title or topic (e.g. Lesson 4: Photosynthesis & Plant Nutrition)"
               value={postTitle}
               onChange={(e) => setPostTitle(e.target.value)}
-              className="w-full bg-[#171d2e] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600"
             />
             <textarea
               rows={3}
               placeholder="Share instructions, key revision points, homework links or notes…"
               value={postContent}
               onChange={(e) => setPostContent(e.target.value)}
-              className="w-full bg-[#171d2e] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600"
             />
             <div className="flex justify-end">
               <button
@@ -325,7 +324,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   setPostContent('');
                 }}
                 disabled={!postTitle || !postContent}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-xs disabled:opacity-50"
               >
                 Publish to Stream
               </button>
@@ -334,22 +333,22 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
           {/* Stream Feed */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Recent Posts in {activeClass?.name}</h3>
+            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Recent Posts in {activeClass?.name}</h3>
             {announcements.filter((a) => a.targetClassId === activeClass?.id || a.targetType === 'all').length === 0 ? (
-              <div className="p-10 text-center rounded-2xl bg-[#101420] border border-white/5 text-xs text-slate-400">
+              <div className="p-10 text-center rounded-2xl bg-white border border-slate-200 shadow-xs text-xs text-slate-500">
                 No stream updates have been posted for this class yet.
               </div>
             ) : (
               announcements
                 .filter((a) => a.targetClassId === activeClass?.id || a.targetType === 'all')
                 .map((anc) => (
-                  <div key={anc.id} className="p-5 rounded-2xl bg-[#111624] border border-white/5 space-y-2">
+                  <div key={anc.id} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">{anc.authorName}</span>
-                      <span className="text-[10px] text-slate-500">{new Date(anc.createdAt).toLocaleDateString()}</span>
+                      <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">{anc.authorName}</span>
+                      <span className="text-[10px] text-slate-500 tabular-nums">{new Date(anc.createdAt).toLocaleDateString()}</span>
                     </div>
-                    <h4 className="text-sm font-bold text-white">{anc.title}</h4>
-                    <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{anc.content}</p>
+                    <h4 className="text-sm font-bold text-slate-900">{anc.title}</h4>
+                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{anc.content}</p>
                   </div>
                 ))
             )}
@@ -360,14 +359,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       {/* Tab 2: Assignments & Grading */}
       {activeTab === 'assignments' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h2 className="text-sm font-bold text-white">Classwork &amp; Submissions</h2>
-              <p className="text-xs text-slate-400">Manage homework, worksheets, and grade student submissions.</p>
+              <h2 className="text-sm font-bold text-slate-900">Classwork &amp; Submissions</h2>
+              <p className="text-xs text-slate-600">Manage homework, worksheets, and grade student submissions.</p>
             </div>
             <button
               onClick={() => setShowAssignModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/25"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm"
             >
               <Plus className="w-4 h-4" /> Create Assignment
             </button>
@@ -375,10 +374,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
           {/* Assignments List */}
           {assignments.filter((a) => a.classId === activeClass?.id).length === 0 ? (
-            <div className="p-12 text-center rounded-2xl bg-[#101420] border border-white/5 space-y-3">
-              <FileText className="w-8 h-8 text-slate-500 mx-auto" />
-              <h3 className="text-sm font-semibold text-white">No assignments have been published yet.</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            <div className="p-12 text-center rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
+              <FileText className="w-8 h-8 text-slate-400 mx-auto" />
+              <h3 className="text-sm font-semibold text-slate-900">No assignments have been published yet.</h3>
+              <p className="text-xs text-slate-600 max-w-sm mx-auto">
                 Click &quot;Create Assignment&quot; to issue homework, questions, or revision tasks to {activeClass?.name}.
               </p>
             </div>
@@ -397,20 +396,20 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         onClick={() => setSelectedAssignmentId(asg.id)}
                         className={`p-4 rounded-2xl border cursor-pointer transition-all ${
                           isSelected
-                            ? 'bg-[#151c2e] border-emerald-500/50 ring-1 ring-emerald-500/20'
-                            : 'bg-[#111624] border-white/5 hover:border-white/10'
+                            ? 'bg-emerald-50/70 border-emerald-400 shadow-xs'
+                            : 'bg-white border-slate-200 hover:border-slate-300 shadow-2xs'
                         }`}
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between gap-2">
                           <div>
-                            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">{asg.subject}</span>
-                            <h4 className="text-sm font-bold text-white mt-0.5">{asg.title}</h4>
+                            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">{asg.subject}</span>
+                            <h4 className="text-sm font-bold text-slate-900 mt-0.5">{asg.title}</h4>
                           </div>
-                          <span className="text-[10px] text-slate-400">Due: {asg.dueDate || 'Open'}</span>
+                          <span className="text-[10px] text-slate-500 tabular-nums shrink-0">Due: {asg.dueDate || 'Open'}</span>
                         </div>
-                        <div className="mt-3 flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-white/5">
+                        <div className="mt-3 flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-200/80 tabular-nums">
                           <span>Max Marks: {asg.maxMarks || 100}</span>
-                          <span className="font-semibold text-blue-300">
+                          <span className="font-semibold text-blue-700">
                             {asgSubs.length} of {classStudents.length} Submitted
                           </span>
                         </div>
@@ -420,14 +419,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </div>
 
               {/* Submissions & Grading Drawer */}
-              <div className="lg:col-span-7 bg-[#111624] border border-white/5 rounded-2xl p-5 space-y-4">
+              <div className="lg:col-span-7 bg-white border border-slate-200 shadow-xs rounded-2xl p-5 space-y-4">
                 {selectedAssignmentId ? (
                   <>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <UserCheck className="w-4 h-4 text-emerald-400" /> Student Submissions &amp; Feedback
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-emerald-600" /> Student Submissions &amp; Feedback
                     </h3>
                     {submissions.filter((s) => s.assignmentId === selectedAssignmentId).length === 0 ? (
-                      <div className="p-8 text-center text-xs text-slate-400">
+                      <div className="p-8 text-center text-xs text-slate-500">
                         No students have submitted this assignment yet.
                       </div>
                     ) : (
@@ -440,26 +439,26 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                               feedback: sub.feedback || '',
                             };
                             return (
-                              <div key={sub.id} className="p-4 rounded-xl bg-[#171d2e] border border-white/5 space-y-3">
+                              <div key={sub.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <div className="text-xs font-bold text-white">{sub.studentName}</div>
+                                  <div className="text-xs font-bold text-slate-900">{sub.studentName}</div>
                                   <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    className={`px-2 py-0.5 rounded-md border text-[10px] font-bold tabular-nums ${
                                       sub.status === 'graded'
-                                        ? 'bg-emerald-500/20 text-emerald-300'
-                                        : 'bg-amber-500/20 text-amber-300'
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : 'bg-amber-50 text-amber-800 border-amber-200'
                                     }`}
                                   >
                                     {sub.status === 'graded' ? `Graded: ${sub.marks} pts` : 'Submitted'}
                                   </span>
                                 </div>
 
-                                <div className="p-3 rounded-lg bg-[#0f1422] text-xs text-slate-200 whitespace-pre-wrap border border-white/5 font-mono">
+                                <div className="p-3 rounded-lg bg-white text-xs text-slate-800 whitespace-pre-wrap border border-slate-200 font-mono">
                                   {sub.content || '(Empty submission content)'}
                                 </div>
 
                                 {/* Grading Form */}
-                                <div className="pt-2 border-t border-white/5 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                                <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                                   <div className="sm:col-span-3">
                                     <input
                                       type="number"
@@ -474,7 +473,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                           },
                                         })
                                       }
-                                      className="w-full bg-[#121724] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 tabular-nums focus:outline-none focus:border-blue-600"
                                     />
                                   </div>
                                   <div className="sm:col-span-6">
@@ -491,13 +490,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                           },
                                         })
                                       }
-                                      className="w-full bg-[#121724] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600"
                                     />
                                   </div>
                                   <div className="sm:col-span-3 text-right">
                                     <button
                                       onClick={() => onGradeSubmission(sub.id, currentGrade.marks, currentGrade.feedback)}
-                                      className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white"
+                                      className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white"
                                     >
                                       Save Grade
                                     </button>
@@ -510,7 +509,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     )}
                   </>
                 ) : (
-                  <div className="p-12 text-center text-xs text-slate-400">
+                  <div className="p-12 text-center text-xs text-slate-500">
                     Select an assignment on the left to inspect student submissions.
                   </div>
                 )}
@@ -523,14 +522,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       {/* Tab 3: Daily Attendance */}
       {activeTab === 'attendance' && (
         <div className="space-y-4 max-w-4xl">
-          <div className="p-5 rounded-2xl bg-[#111624] border border-white/5 space-y-4">
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-emerald-400" /> Daily Attendance Session
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-emerald-600" /> Daily Attendance Session
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Class: <b>{activeClass?.name}</b> · Accurately records attendance in Firestore
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Class: <b className="text-slate-900">{activeClass?.name}</b> · Accurately records attendance in Firestore
                 </p>
               </div>
 
@@ -539,19 +538,19 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   type="date"
                   value={attDate}
                   onChange={(e) => setAttDate(e.target.value)}
-                  className="bg-[#171d2e] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white"
+                  className="bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
                 />
                 <button
                   type="button"
                   onClick={markAllPresent}
-                  className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-medium text-slate-300 border border-white/10"
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 border border-slate-200"
                 >
                   Mark All Present
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveAttendance}
-                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-md shadow-emerald-600/25"
+                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-sm"
                 >
                   Save to Cloud
                 </button>
@@ -559,23 +558,23 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             </div>
 
             {attSaved && (
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" /> Attendance recorded and saved to Firestore successfully!
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 font-medium">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> Attendance recorded and saved to Firestore successfully!
               </div>
             )}
 
             {classStudents.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">
+              <div className="p-8 text-center text-xs text-slate-500">
                 No students are currently enrolled in {activeClass?.name}.
               </div>
             ) : (
-              <div className="divide-y divide-white/5 pt-2">
+              <div className="divide-y divide-slate-200 pt-2">
                 {classStudents.map((st) => {
                   const currentStatus = attRecords[st.id] || 'present';
                   return (
                     <div key={st.id} className="py-3 flex items-center justify-between gap-4">
                       <div>
-                        <div className="text-xs font-semibold text-white">{st.name}</div>
+                        <div className="text-xs font-semibold text-slate-900">{st.name}</div>
                         <div className="text-[11px] text-slate-500 font-mono">{st.admissionNo || 'Student'}</div>
                       </div>
 
@@ -585,8 +584,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           onClick={() => setAttRecords({ ...attRecords, [st.id]: 'present' })}
                           className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                             currentStatus === 'present'
-                              ? 'bg-emerald-600 text-white shadow'
-                              : 'bg-white/5 text-slate-400 hover:text-white'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                           }`}
                         >
                           Present
@@ -596,8 +595,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           onClick={() => setAttRecords({ ...attRecords, [st.id]: 'late' })}
                           className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                             currentStatus === 'late'
-                              ? 'bg-amber-600 text-white shadow'
-                              : 'bg-white/5 text-slate-400 hover:text-white'
+                              ? 'bg-amber-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                           }`}
                         >
                           Late
@@ -607,8 +606,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           onClick={() => setAttRecords({ ...attRecords, [st.id]: 'absent' })}
                           className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                             currentStatus === 'absent'
-                              ? 'bg-red-600 text-white shadow'
-                              : 'bg-white/5 text-slate-400 hover:text-white'
+                              ? 'bg-rose-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                           }`}
                         >
                           Absent
@@ -626,24 +625,24 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       {/* Tab 4: Results & Assessments */}
       {activeTab === 'results' && (
         <div className="space-y-4 max-w-4xl">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h2 className="text-sm font-bold text-white">Assessments &amp; Report Cards</h2>
-              <p className="text-xs text-slate-400">Record examination marks and performance grading.</p>
+              <h2 className="text-sm font-bold text-slate-900">Assessments &amp; Report Cards</h2>
+              <p className="text-xs text-slate-600">Record examination marks and performance grading.</p>
             </div>
             <button
               onClick={() => setShowResultModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/25"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm"
             >
               <Plus className="w-4 h-4" /> Record New Exam Marks
             </button>
           </div>
 
           {results.filter((r) => r.classId === activeClass?.id).length === 0 ? (
-            <div className="p-12 text-center rounded-2xl bg-[#101420] border border-white/5 space-y-3">
-              <Award className="w-8 h-8 text-slate-500 mx-auto" />
-              <h3 className="text-sm font-semibold text-white">No exam marks have been entered yet.</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            <div className="p-12 text-center rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
+              <Award className="w-8 h-8 text-slate-400 mx-auto" />
+              <h3 className="text-sm font-semibold text-slate-900">No exam marks have been entered yet.</h3>
+              <p className="text-xs text-slate-600 max-w-sm mx-auto">
                 Record unit test, term exam, or assignment results for {activeClass?.name}.
               </p>
             </div>
@@ -652,38 +651,51 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               {results
                 .filter((r) => r.classId === activeClass?.id)
                 .map((res) => {
+                  const legacy = res as any;
+                  const records = Array.isArray(res?.records)
+                    ? res.records
+                    : legacy?.studentId
+                    ? [
+                        {
+                          studentId: String(legacy.studentId),
+                          studentName: String(legacy.studentName || 'Student'),
+                          marks: Number(legacy.marks ?? 0),
+                          grade: String(legacy.grade || 'N/A'),
+                        },
+                      ]
+                    : [];
                   const avg =
-                    res.records.length > 0
-                      ? Math.round(res.records.reduce((acc, curr) => acc + curr.marks, 0) / res.records.length)
+                    records.length > 0
+                      ? Math.round(records.reduce((acc, curr) => acc + curr.marks, 0) / records.length)
                       : 0;
                   return (
-                    <div key={res.id} className="p-5 rounded-2xl bg-[#111624] border border-white/5 space-y-3">
-                      <div className="flex items-center justify-between">
+                    <div key={res.id} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <div>
-                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">{res.subject}</span>
-                          <h3 className="text-base font-bold text-white">{res.examName}</h3>
+                          <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">{res.subject}</span>
+                          <h3 className="text-base font-bold text-slate-900">{res.examName || legacy?.term || 'Assessment'}</h3>
                         </div>
                         <div className="text-right">
-                          <div className="text-sm font-bold text-white">Class Avg: {avg}%</div>
-                          <span className="text-[10px] text-slate-400">{res.records.length} students recorded</span>
+                          <div className="text-sm font-bold text-slate-900 tabular-nums">Class Avg: {avg}%</div>
+                          <span className="text-[10px] text-slate-500 tabular-nums">{records.length} students recorded</span>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 pt-2">
-                        {res.records.map((rec) => (
-                          <div key={rec.studentId} className="p-2.5 rounded-xl bg-[#161c2c] border border-white/5 text-xs">
-                            <div className="font-semibold text-white truncate">{rec.studentName}</div>
-                            <div className="flex items-center justify-between mt-1 text-slate-400">
-                              <span>{rec.marks} / {res.maxMarks}</span>
+                        {records.map((rec) => (
+                          <div key={rec.studentId} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                            <div className="font-semibold text-slate-900 truncate">{rec.studentName}</div>
+                            <div className="flex items-center justify-between mt-1 text-slate-600 tabular-nums">
+                              <span>{rec.marks} / {res.maxMarks || legacy?.maxMarks || 100}</span>
                               <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${
                                   rec.grade === 'A'
-                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                     : rec.grade === 'B'
-                                    ? 'bg-blue-500/20 text-blue-300'
+                                    ? 'bg-blue-50 text-blue-800 border-blue-200'
                                     : rec.grade === 'C'
-                                    ? 'bg-amber-500/20 text-amber-300'
-                                    : 'bg-red-500/20 text-red-300'
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-rose-50 text-rose-800 border-rose-200'
                                 }`}
                               >
                                 Grade {rec.grade}
@@ -703,16 +715,16 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       {/* Tab 5: Gemini AI Lesson Assistant */}
       {activeTab === 'ai' && (
         <div className="max-w-4xl space-y-4">
-          <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-950/60 via-[#121726] to-[#121726] border border-indigo-500/30 space-y-4">
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-50 via-white to-blue-50 border border-indigo-200 shadow-xs space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 border border-indigo-200 flex items-center justify-center shrink-0">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans']">
+                <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
                   AI Educational Assistant (Gemini)
                 </h3>
-                <p className="text-xs text-slate-300">
+                <p className="text-xs text-slate-600">
                   Generate Sri Lankan Grade 6–11 curriculum-aligned assignments, exam questions, and lesson rubrics.
                 </p>
               </div>
@@ -720,22 +732,22 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Topic / Chapter</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Topic / Chapter</label>
                 <input
                   type="text"
                   placeholder="e.g. Electric circuits, Ohm's law, and resistance"
                   value={aiTopic}
                   onChange={(e) => setAiTopic(e.target.value)}
-                  className="w-full bg-[#171d2e] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Task Type</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Task Type</label>
                 <select
                   value={aiTaskType}
                   onChange={(e) => setAiTaskType(e.target.value)}
-                  className="w-full bg-[#171d2e] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-600"
                 >
                   <option value="Generate an interactive assignment with questions">Assignment with Questions &amp; Marking Scheme</option>
                   <option value="Generate a 5-question multiple choice quiz">5-Question Multiple Choice Quiz</option>
@@ -745,112 +757,118 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Specific Instructions (Optional)</label>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">Specific Instructions (Optional)</label>
               <input
                 type="text"
                 placeholder="e.g. Include 2 calculation problems and 1 real-world example."
                 value={aiInstructions}
                 onChange={(e) => setAiInstructions(e.target.value)}
-                className="w-full bg-[#171d2e] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
               />
             </div>
 
             <button
               onClick={handleGenerateAiLesson}
               disabled={aiLoading || !aiTopic}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-xs font-bold text-white shadow-sm inline-flex items-center gap-2 disabled:opacity-50"
             >
-              {aiLoading ? 'Generating with Gemini…' : 'Generate Curriculum Content'}
+              {aiLoading && <InlineSpinner className="w-3.5 h-3.5 text-white" />}
+              <span>{aiLoading ? 'Generating with Gemini…' : 'Generate Curriculum Content'}</span>
             </button>
           </div>
 
           {/* AI Output Box */}
-          {aiOutput && (
-            <div className="p-6 rounded-2xl bg-[#111624] border border-indigo-500/25 space-y-3">
+          {aiLoading ? (
+            <AiThinkingSkeleton label="Generating curriculum material" />
+          ) : aiOutput ? (
+            <div className="p-6 rounded-2xl bg-white border border-indigo-200 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-indigo-400">Generated Teaching Material</span>
+                <span className="text-xs font-bold text-indigo-700">Generated Teaching Material</span>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(aiOutput);
-                    alert('Copied to clipboard!');
+                    setAiCopied(true);
+                    setTimeout(() => setAiCopied(false), 2000);
                   }}
-                  className="text-xs text-slate-400 hover:text-white"
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-900"
                 >
-                  Copy All
+                  {aiCopied ? 'Copied!' : 'Copy All'}
                 </button>
               </div>
-              <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans bg-[#161c2c] p-4 rounded-xl border border-white/5">
+              <div className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans bg-slate-50 p-4 rounded-xl border border-slate-200">
                 {aiOutput}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       )}
 
       {/* Modal: Create Assignment */}
       {showAssignModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#151a28] border border-white/10 rounded-2xl max-w-lg w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-white">Issue New Assignment to {activeClass?.name}</h3>
+        <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
+              Issue New Assignment to {activeClass?.name}
+            </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Title *</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Title *</label>
                 <input
                   type="text"
                   placeholder="e.g. Chemical Reactions Worksheet 1"
                   value={assignForm.title}
                   onChange={(e) => setAssignForm({ ...assignForm, title: e.target.value })}
-                  className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">Subject</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Subject</label>
                   <input
                     type="text"
                     value={assignForm.subject}
                     onChange={(e) => setAssignForm({ ...assignForm, subject: e.target.value })}
-                    className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">Max Marks</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Max Marks</label>
                   <input
                     type="number"
                     value={assignForm.maxMarks}
                     onChange={(e) => setAssignForm({ ...assignForm, maxMarks: parseInt(e.target.value) || 100 })}
-                    className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 tabular-nums focus:outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Submission Deadline</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Submission Deadline</label>
                 <input
                   type="date"
                   value={assignForm.dueDate}
                   onChange={(e) => setAssignForm({ ...assignForm, dueDate: e.target.value })}
-                  className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Instructions &amp; Questions *</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Instructions &amp; Questions *</label>
                 <textarea
                   rows={4}
                   placeholder="Explain requirements, questions to answer, or attach instructions…"
                   value={assignForm.instructions}
                   onChange={(e) => setAssignForm({ ...assignForm, instructions: e.target.value })}
-                  className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
               <button
                 onClick={() => setShowAssignModal(false)}
-                className="px-4 py-2 rounded-xl bg-white/5 text-xs text-slate-300"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
               >
                 Cancel
               </button>
@@ -872,7 +890,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   });
                   setShowAssignModal(false);
                 }}
-                className="px-5 py-2 rounded-xl bg-emerald-600 text-xs font-semibold text-white"
+                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white shadow-sm"
               >
                 Publish Assignment
               </button>
@@ -883,37 +901,39 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
       {/* Modal: Enter Assessment Results */}
       {showResultModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#151a28] border border-white/10 rounded-2xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-base font-bold text-white">Record Assessment Marks for {activeClass?.name}</h3>
+        <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
+              Record Assessment Marks for {activeClass?.name}
+            </h3>
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Assessment Name *</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Assessment Name *</label>
                 <input
                   type="text"
                   value={resultExamName}
                   onChange={(e) => setResultExamName(e.target.value)}
                   placeholder="e.g. Unit 3 Test"
-                  className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Max Marks</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Max Marks</label>
                 <input
                   type="number"
                   value={resultMaxMarks}
                   onChange={(e) => setResultMaxMarks(parseInt(e.target.value) || 100)}
-                  className="w-full bg-[#1b2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 tabular-nums focus:outline-none focus:border-blue-600"
                 />
               </div>
             </div>
 
             <div className="space-y-2 pt-2">
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Student Marks Entry</h4>
+              <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Student Marks Entry</h4>
               <div className="max-h-60 overflow-y-auto space-y-2">
                 {classStudents.map((st) => (
-                  <div key={st.id} className="flex items-center justify-between gap-3 p-2 bg-[#1b2234] rounded-xl text-xs">
-                    <span className="text-white font-medium truncate">{st.name}</span>
+                  <div key={st.id} className="flex items-center justify-between gap-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                    <span className="text-slate-900 font-medium truncate">{st.name}</span>
                     <input
                       type="number"
                       placeholder="Marks"
@@ -924,17 +944,17 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           [st.id]: parseInt(e.target.value) || 0,
                         })
                       }
-                      className="w-24 bg-[#121724] border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white text-right"
+                      className="w-24 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs text-slate-900 text-right tabular-nums focus:outline-none focus:border-blue-600"
                     />
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-white/5">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
               <button
                 onClick={() => setShowResultModal(false)}
-                className="px-4 py-2 rounded-xl bg-white/5 text-xs text-slate-300"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
               >
                 Cancel
               </button>
@@ -963,7 +983,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   });
                   setShowResultModal(false);
                 }}
-                className="px-5 py-2 rounded-xl bg-emerald-600 text-xs font-semibold text-white"
+                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white shadow-sm"
               >
                 Save Marks to Cloud
               </button>

@@ -224,19 +224,19 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
   const availableDistricts = SRI_LANKA_PROVINCES[formData.province] || [];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-[#111624] border border-white/10 rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative my-auto max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative my-auto max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-white/10 shrink-0">
+        <div className="flex items-start justify-between pb-4 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/30">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-sm shadow-blue-600/20">
               <School className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-white font-['Plus_Jakarta_Sans']">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
                 Register Your School
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Official institution onboarding &amp; Google Workspace verification application
               </p>
             </div>
@@ -244,7 +244,7 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
           <button
             type="button"
             onClick={handleClose}
-            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -255,68 +255,68 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
           {submittedApp ? (
             /* Successful Submission View */
             <div className="py-6 px-4 text-center space-y-5 animate-in zoom-in-95 duration-200">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto text-2xl shadow-xl shadow-emerald-500/20">
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
                 <CheckCircle2 className="w-9 h-9" />
               </div>
 
               <div className="space-y-2">
-                <span className="inline-block px-3 py-1 rounded text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <span className="inline-block px-3 py-1 rounded text-xs font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
                   Status: {submittedApp.status}
                 </span>
-                <h3 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans']">
+                <h3 className="text-xl font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
                   Registration Submitted
                 </h3>
-                <p className="text-xs sm:text-sm text-emerald-200 max-w-lg mx-auto leading-relaxed font-medium">
+                <p className="text-xs sm:text-sm text-emerald-700 max-w-lg mx-auto leading-relaxed font-medium">
                   {successMessage ||
                     'Your school registration has been submitted successfully. Our administration team will review your application.'}
                 </p>
               </div>
 
               {/* Application Details Card */}
-              <div className="p-4 rounded-xl bg-[#161c2d] border border-white/10 text-left max-w-md mx-auto space-y-2.5 text-xs">
-                <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                  <span className="text-slate-400 font-medium">Registration ID</span>
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left max-w-md mx-auto space-y-2.5 text-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium">Registration ID</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-blue-400 text-sm bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                    <span className="font-mono font-bold text-blue-700 text-sm bg-blue-50 px-2 py-0.5 rounded border border-blue-200 tabular-nums">
                       {submittedApp.id}
                     </span>
                     <button
                       type="button"
                       onClick={handleCopyId}
-                      className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                      className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition-colors"
                       title="Copy Registration ID"
                     >
-                      {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">School Name</span>
-                  <span className="font-semibold text-white">{submittedApp.schoolName}</span>
+                  <span className="text-slate-500">School Name</span>
+                  <span className="font-semibold text-slate-900">{submittedApp.schoolName}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Official School Email</span>
-                  <span className="font-semibold text-indigo-300">{submittedApp.administratorEmail}</span>
+                  <span className="text-slate-500">Official School Email</span>
+                  <span className="font-semibold text-blue-700">{submittedApp.administratorEmail}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Contact Person</span>
-                  <span className="font-semibold text-slate-200">{submittedApp.administratorName}</span>
+                  <span className="text-slate-500">Contact Person</span>
+                  <span className="font-semibold text-slate-800">{submittedApp.administratorName}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">District / Province</span>
-                  <span className="font-semibold text-slate-200">
+                  <span className="text-slate-500">District / Province</span>
+                  <span className="font-semibold text-slate-800">
                     {submittedApp.district}, {submittedApp.province}
                   </span>
                 </div>
 
                 {submittedApp.documentName && (
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Attached Document</span>
-                    <span className="font-semibold text-emerald-300 truncate max-w-[200px]">
+                    <span className="text-slate-500">Attached Document</span>
+                    <span className="font-semibold text-emerald-700 truncate max-w-[200px]">
                       {submittedApp.documentName}
                     </span>
                   </div>
@@ -324,14 +324,14 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
               </div>
 
               {/* What Happens Next Notice */}
-              <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 max-w-md mx-auto text-left text-xs text-blue-200/90 leading-relaxed space-y-1.5">
-                <div className="font-bold text-blue-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-400" /> What Happens Next?
+              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 max-w-md mx-auto text-left text-xs text-slate-700 leading-relaxed space-y-1.5">
+                <div className="font-bold text-blue-800 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" /> What Happens Next?
                 </div>
                 <p>1. Your registration is queued for verification by the JMC Classroom Operator.</p>
                 <p>
                   2. Upon approval, an automated confirmation email will be sent to{' '}
-                  <b>{submittedApp.administratorEmail}</b> from our administration account.
+                  <b className="text-slate-900">{submittedApp.administratorEmail}</b> from our administration account.
                 </p>
                 <p>
                   3. You can then sign in directly with Google to manage Grade 6–11 classes, teachers, and students.
@@ -342,14 +342,14 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs border border-white/10 transition-colors"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200 transition-colors"
                 >
                   Submit Another School
                 </button>
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition-all"
+                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
                 >
                   Close &amp; Return to Home
                 </button>
@@ -359,21 +359,21 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
             /* Registration Form */
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
                   <span>{error}</span>
                 </div>
               )}
 
               {/* Section 1: Institution Info */}
               <div className="space-y-3">
-                <div className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                <div className="text-xs font-bold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
                   <Building className="w-3.5 h-3.5" /> Institution Identification
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    School Name <span className="text-rose-400">*</span>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    School Name <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="text"
@@ -381,22 +381,22 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                     value={formData.schoolName}
                     onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
                     placeholder="e.g. Mahajana College, Tellippalai"
-                    className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      School Type <span className="text-rose-400">*</span>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      School Type <span className="text-rose-600">*</span>
                     </label>
                     <select
                       value={formData.schoolType}
                       onChange={(e) => setFormData({ ...formData, schoolType: e.target.value })}
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-600 transition-colors"
                     >
                       {SCHOOL_TYPES.map((type) => (
-                        <option key={type} value={type} className="bg-[#111624] text-white">
+                        <option key={type} value={type}>
                           {type}
                         </option>
                       ))}
@@ -404,30 +404,30 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Principal Name <span className="text-slate-500">(optional)</span>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Principal Name <span className="text-slate-400">(optional)</span>
                     </label>
                     <input
                       type="text"
                       value={formData.principalName}
                       onChange={(e) => setFormData({ ...formData, principalName: e.target.value })}
                       placeholder="e.g. Mr. K. Pushparathanam"
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Section 2: Contact Person & Email */}
-              <div className="space-y-3 pt-2 border-t border-white/10">
-                <div className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+              <div className="space-y-3 pt-2 border-t border-slate-200">
+                <div className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5" /> Official School Contact &amp; Email
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Contact Person <span className="text-rose-400">*</span>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Contact Person <span className="text-rose-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -435,13 +435,13 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                       value={formData.administratorName}
                       onChange={(e) => setFormData({ ...formData, administratorName: e.target.value })}
                       placeholder="e.g. Sivaneswaran K."
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Phone Number <span className="text-rose-400">*</span>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Phone Number <span className="text-rose-600">*</span>
                     </label>
                     <input
                       type="tel"
@@ -449,14 +449,14 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                       value={formData.contactNumber}
                       onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
                       placeholder="e.g. 076 391 7067 / 021 222 1234"
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Official School Email <span className="text-rose-400">*</span>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Official School Email <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="email"
@@ -464,32 +464,32 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                     value={formData.administratorEmail}
                     onChange={(e) => setFormData({ ...formData, administratorEmail: e.target.value })}
                     placeholder="e.g. principal@mahajana.lk or school.admin@gmail.com"
-                    className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors"
                   />
-                  <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
                     Approval updates and School Admin portal access are provisioned for this Google email.
                   </span>
                 </div>
               </div>
 
               {/* Section 3: Location */}
-              <div className="space-y-3 pt-2 border-t border-white/10">
-                <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+              <div className="space-y-3 pt-2 border-t border-slate-200">
+                <div className="text-xs font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5" /> Location &amp; Address
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Province <span className="text-rose-400">*</span>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Province <span className="text-rose-600">*</span>
                     </label>
                     <select
                       value={formData.province}
                       onChange={handleProvinceChange}
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-600 transition-colors"
                     >
                       {Object.keys(SRI_LANKA_PROVINCES).map((prov) => (
-                        <option key={prov} value={prov} className="bg-[#111624] text-white">
+                        <option key={prov} value={prov}>
                           {prov}
                         </option>
                       ))}
@@ -497,16 +497,16 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      District <span className="text-rose-400">*</span>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      District <span className="text-rose-600">*</span>
                     </label>
                     <select
                       value={formData.district}
                       onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-600 transition-colors"
                     >
                       {availableDistricts.map((dist) => (
-                        <option key={dist} value={dist} className="bg-[#111624] text-white">
+                        <option key={dist} value={dist}>
                           {dist}
                         </option>
                       ))}
@@ -515,8 +515,8 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    Address <span className="text-rose-400">*</span>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Address <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="text"
@@ -524,50 +524,50 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     placeholder="e.g. Ampaani Road, Tellippalai, Jaffna"
-                    className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors"
                   />
                 </div>
               </div>
 
               {/* Section 4: Additional Info & Optional Google Drive Document */}
-              <div className="space-y-3 pt-2 border-t border-white/10">
+              <div className="space-y-3 pt-2 border-t border-slate-200">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Additional Information <span className="text-slate-500">(optional)</span>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Additional Information <span className="text-slate-400">(optional)</span>
                     </label>
                     <input
                       type="text"
                       value={formData.additionalInfo}
                       onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
                       placeholder="e.g. Grade 6–11 student count: 450"
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      School Website <span className="text-slate-500">(optional)</span>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      School Website <span className="text-slate-400">(optional)</span>
                     </label>
                     <input
                       type="url"
                       value={formData.website}
                       onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                       placeholder="e.g. https://mahajana.lk"
-                      className="w-full bg-[#171d2d] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors"
                     />
                   </div>
                 </div>
 
                 {/* Optional Document Upload */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
                     Supporting Document (Verification Letter / MOE Registration){' '}
-                    <span className="text-slate-500">(optional, max 2 MB)</span>
+                    <span className="text-slate-400">(optional, max 2 MB)</span>
                   </label>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <label className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-[#171d2d] border border-dashed border-white/20 hover:border-blue-500/60 cursor-pointer text-xs text-slate-300 transition-colors">
-                      <Upload className="w-4 h-4 text-blue-400 shrink-0" />
+                    <label className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-dashed border-slate-300 hover:border-blue-500 cursor-pointer text-xs text-slate-700 transition-colors">
+                      <Upload className="w-4 h-4 text-blue-600 shrink-0" />
                       <span className="truncate">
                         {documentFile
                           ? `${documentFile.fileName} (${Math.round(documentFile.size / 1024)} KB)`
@@ -588,7 +588,7 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                           setDocumentFile(null);
                           if (fileInputRef.current) fileInputRef.current.value = '';
                         }}
-                        className="px-3 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center justify-center gap-1.5"
+                        className="px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center justify-center gap-1.5"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Remove</span>
@@ -596,7 +596,7 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                     )}
                   </div>
                   {documentFile && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-400">
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-700">
                       <FileText className="w-3.5 h-3.5" />
                       <span>Ready to archive in Google Drive &quot;School Registrations&quot; folder.</span>
                     </div>
@@ -605,9 +605,9 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
               </div>
 
               {/* Footer Actions */}
-              <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">
-                  <span className="text-rose-400">*</span> Required fields
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+                <span className="text-[11px] text-slate-500">
+                  <span className="text-rose-600">*</span> Required fields
                 </span>
 
                 <div className="flex gap-2">
@@ -615,14 +615,14 @@ export const SchoolRegistrationModal: React.FC<SchoolRegistrationModalProps> = (
                     type="button"
                     onClick={handleClose}
                     disabled={loading}
-                    className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 transition-colors"
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 disabled:opacity-50 transition-all"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm disabled:opacity-50 transition-all"
                   >
                     {loading ? (
                       <>

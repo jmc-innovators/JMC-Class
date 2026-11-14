@@ -42,10 +42,10 @@ export const GeminiChatWidget: React.FC = () => {
 
   const quickPrompts = [
     "Explain Ohm's law with an example",
-    "How to solve quadratic equations step-by-step",
-    "Tips for O/L English formal letter writing",
-    "Explain photosynthesis and cellular respiration",
-    "Draft a 45-minute lesson plan outline",
+    'How to solve quadratic equations step-by-step',
+    'Tips for O/L English formal letter writing',
+    'Explain photosynthesis and cellular respiration',
+    'Draft a 45-minute lesson plan outline',
   ];
 
   const handleSend = async (textToSend?: string) => {
@@ -111,38 +111,36 @@ export const GeminiChatWidget: React.FC = () => {
       {/* Expanded Chat Drawer */}
       {isOpen && (
         <div
-          className={`mb-3 w-[92vw] sm:w-[400px] bg-[#121726]/95 border border-indigo-500/30 rounded-2xl shadow-2xl backdrop-blur-xl flex flex-col transition-all overflow-hidden ${
+          className={`mb-3 w-[92vw] sm:w-[400px] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col transition-all overflow-hidden ${
             isMinimized ? 'h-14' : 'h-[520px] max-h-[80vh]'
           }`}
         >
           {/* Header */}
-          <div className="px-4 py-3 bg-gradient-to-r from-indigo-900/60 to-purple-900/60 border-b border-white/10 flex items-center justify-between shrink-0">
+          <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 border-b border-blue-700/20 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md">
+              <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-white">
                 <Sparkles className="w-4 h-4" />
               </div>
               <div>
                 <div className="text-xs font-bold text-white flex items-center gap-1.5 font-['Plus_Jakarta_Sans']">
                   Gemini AI Tutor
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
-                    Flash 3.8
-                  </span>
+                  <span className="text-[10px] font-medium text-blue-100">· Study Help</span>
                 </div>
-                <div className="text-[10px] text-indigo-200/80">JMC Classroom Quick Assistant</div>
+                <div className="text-[10px] text-blue-100">JMC Classroom Quick Assistant</div>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+                className="p-1.5 rounded-lg text-blue-100 hover:text-white hover:bg-white/15"
                 title={isMinimized ? 'Maximize' : 'Minimize'}
               >
                 {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-white/10"
+                className="p-1.5 rounded-lg text-blue-100 hover:text-white hover:bg-white/15"
                 title="Close"
               >
                 <X className="w-4 h-4" />
@@ -153,19 +151,18 @@ export const GeminiChatWidget: React.FC = () => {
           {!isMinimized && (
             <>
               {/* Messages Body */}
-              <div className="flex-1 p-3.5 overflow-y-auto space-y-3 scrollbar-thin">
-                {/* Quick Prompts */}
+              <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-slate-50">
                 {messages.length <= 1 && (
                   <div className="space-y-1.5 pt-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Quick Questions:
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Quick Questions
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {quickPrompts.map((q) => (
                         <button
                           key={q}
                           onClick={() => handleSend(q)}
-                          className="text-left text-[11px] p-2 rounded-xl bg-white/5 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-200 border border-white/5 hover:border-indigo-500/30 transition-all"
+                          className="text-left text-[11px] px-2.5 py-1.5 rounded-xl bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs"
                         >
                           {q}
                         </button>
@@ -180,7 +177,7 @@ export const GeminiChatWidget: React.FC = () => {
                     className={`flex gap-2.5 ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {m.sender === 'ai' && (
-                      <div className="w-6 h-6 rounded-lg bg-indigo-600/30 text-indigo-300 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-500/20">
+                      <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-200">
                         <Bot className="w-3.5 h-3.5" />
                       </div>
                     )}
@@ -188,14 +185,14 @@ export const GeminiChatWidget: React.FC = () => {
                     <div
                       className={`relative group max-w-[82%] rounded-2xl p-3 text-xs leading-relaxed ${
                         m.sender === 'user'
-                          ? 'bg-blue-600 text-white rounded-tr-sm'
-                          : 'bg-[#181f33] text-slate-200 border border-white/5 rounded-tl-sm'
+                          ? 'bg-blue-600 text-white rounded-tr-sm shadow-xs'
+                          : 'bg-white text-slate-800 border border-slate-200 rounded-tl-sm shadow-2xs'
                       }`}
                     >
                       <div className="whitespace-pre-wrap font-sans">{m.text}</div>
                       <div
                         className={`text-[9px] mt-1 text-right ${
-                          m.sender === 'user' ? 'text-blue-200' : 'text-slate-400'
+                          m.sender === 'user' ? 'text-blue-100' : 'text-slate-400'
                         }`}
                       >
                         {m.timestamp}
@@ -205,10 +202,10 @@ export const GeminiChatWidget: React.FC = () => {
                         <button
                           onClick={() => copyText(m.id, m.text)}
                           title="Copy answer"
-                          className="absolute -bottom-2 -right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md bg-[#212942] border border-white/10 text-slate-300 hover:text-white transition-opacity"
+                          className="absolute -bottom-2 -right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-slate-900 transition-opacity"
                         >
                           {copiedId === m.id ? (
-                            <Check className="w-3 h-3 text-emerald-400" />
+                            <Check className="w-3 h-3 text-emerald-600" />
                           ) : (
                             <Copy className="w-3 h-3" />
                           )}
@@ -217,7 +214,7 @@ export const GeminiChatWidget: React.FC = () => {
                     </div>
 
                     {m.sender === 'user' && (
-                      <div className="w-6 h-6 rounded-lg bg-blue-600/40 text-blue-200 flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5">
                         <User className="w-3.5 h-3.5" />
                       </div>
                     )}
@@ -226,14 +223,11 @@ export const GeminiChatWidget: React.FC = () => {
 
                 {loading && (
                   <div className="flex gap-2.5 items-center">
-                    <div className="w-6 h-6 rounded-lg bg-indigo-600/30 text-indigo-300 flex items-center justify-center shrink-0 border border-indigo-500/20">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-200">
                       <Sparkles className="w-3.5 h-3.5 animate-spin" />
                     </div>
-                    <div className="bg-[#181f33] rounded-2xl px-3 py-2 text-xs text-indigo-300 flex items-center gap-1.5 border border-white/5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse delay-75" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse delay-150" />
-                      <span>Thinking with Gemini…</span>
+                    <div className="bg-white rounded-2xl px-3 py-2 text-xs text-indigo-700 flex items-center gap-1.5 border border-slate-200">
+                      <span>Thinking…</span>
                     </div>
                   </div>
                 )}
@@ -241,7 +235,7 @@ export const GeminiChatWidget: React.FC = () => {
               </div>
 
               {/* Input Footer */}
-              <div className="p-2.5 border-t border-white/10 bg-[#0f1422]">
+              <div className="p-2.5 border-t border-slate-200 bg-white">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -255,12 +249,12 @@ export const GeminiChatWidget: React.FC = () => {
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Ask any study question…"
                     disabled={loading}
-                    className="flex-1 bg-[#171e30] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white"
                   />
                   <button
                     type="submit"
                     disabled={!input.trim() || loading}
-                    className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition-colors shadow-md shadow-indigo-600/20 shrink-0"
+                    className="p-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 transition-colors shadow-sm shrink-0"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
@@ -271,19 +265,17 @@ export const GeminiChatWidget: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Pill Button */}
+      {/* Floating Launcher Button */}
       {!isOpen && (
         <button
           onClick={() => {
             setIsOpen(true);
             setIsMinimized(false);
           }}
-          className="group flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-2xl shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all border border-white/20 font-['Plus_Jakarta_Sans']"
+          className="group flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 hover:scale-[1.02] active:scale-95 transition-all border border-blue-500 font-['Plus_Jakarta_Sans']"
         >
-          <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
-          </span>
-          <span>Gemini AI Tutor</span>
+          <Sparkles className="w-4 h-4 text-blue-100" />
+          <span>AI Study Tutor</span>
         </button>
       )}
     </div>

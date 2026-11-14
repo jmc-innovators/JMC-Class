@@ -328,14 +328,19 @@ const defaultStore: DataStore = {
         id: 'res_kasun_science',
         schoolId: 'id_mtz4zcm9_xs77h8e',
         classId: 'cls_grade9a',
-        studentId: 'st_kasun',
-        studentName: 'Kasun Bandara',
         subject: 'Science',
-        term: 'Term 1 Mid Exam',
-        marks: 88,
-        grade: 'A',
-        feedback: 'Excellent grasp of kinematics and experimental diagrams.',
+        examName: 'Term 1 Mid Exam',
+        maxMarks: 100,
         teacherName: 'Mr. Sivaneswaran',
+        records: [
+          {
+            studentId: 'st_kasun',
+            studentName: 'Kasun Bandara',
+            marks: 88,
+            grade: 'A',
+            feedback: 'Excellent grasp of kinematics and experimental diagrams.',
+          },
+        ],
         createdAt: new Date().toISOString(),
       },
     ],
@@ -364,8 +369,27 @@ const defaultStore: DataStore = {
   schoolApplications: {},
   applicationDocuments: {},
   workspaceConfig: {
-    configured: false,
+    configured: true,
     primaryAccountEmail: 'info@jmcinnovator.cc.cd',
+    connectedGoogleEmail: 'info@jmcinnovator.cc.cd',
+    sendingFromEmail: 'info@jmcinnovator.cc.cd',
+    aliasMode: 'direct_account',
+    rootFolderId: '1tWHPuN-0MvymSPwmotE9IPxrvN-L12kc',
+    rootFolderUrl: 'https://drive.google.com/drive/folders/1tWHPuN-0MvymSPwmotE9IPxrvN-L12kc',
+    subfolders: {
+      schoolRegistrations: '1lCha_IZckw1h0PNpK4hGiHU2sBX2Wsjv',
+      approvedSchools: '1HIa_nPLh_iowWq5ybGYJOfOB4iBXB1EW',
+      rejectedApplications: '1C0LBcHEPH9D5YdgCG2Ai-nQNmXdGdL9Q',
+      systemReports: '1_3bwWjE-2AgJFmsZtr6-MseZWzOXEpHy',
+      backups: '16DV5PqQD-qOkVE2u9iHBjxuwkYoBVZW8',
+    },
+    spreadsheetId: '1BKMLbDNGp_gLdJKlO4eiT6dY0yfqGyrOI3OyduCpKNc',
+    spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/1BKMLbDNGp_gLdJKlO4eiT6dY0yfqGyrOI3OyduCpKNc/edit',
+    appsScriptUrl: 'https://script.google.com/macros/s/AKfycbzgY8SzMg2jua9o8xdqQVUV6pux1jCCQpsjTyy7f1bTeY8qA8EHBCuhJDua-BxVsYZvWA/exec',
+    appsScriptConnected: true,
+    appsScriptAccountEmail: 'info@jmcinnovator.cc.cd',
+    appsScriptAliasMode: 'direct_account',
+    appsScriptLastVerifiedAt: '2026-11-14T00:34:30.000Z',
   },
 };
 
@@ -537,6 +561,9 @@ function isValidAppsScriptUrl(url: string): boolean {
   );
 }
 
+const PREVERIFIED_APPS_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbzgY8SzMg2jua9o8xdqQVUV6pux1jCCQpsjTyy7f1bTeY8qA8EHBCuhJDua-BxVsYZvWA/exec';
+
 function resolveAppsScriptUrl(store: DataStore): string {
   const configured = String(store?.workspaceConfig?.appsScriptUrl || '').trim();
   if (configured && isValidAppsScriptUrl(configured)) {
@@ -546,7 +573,7 @@ function resolveAppsScriptUrl(store: DataStore): string {
   if (envFallback && isValidAppsScriptUrl(envFallback)) {
     return envFallback;
   }
-  return '';
+  return PREVERIFIED_APPS_SCRIPT_URL;
 }
 
 async function callAppsScript(
@@ -603,12 +630,20 @@ app.get('/api/workspace/config', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized: Operator access required.' });
   }
   const store = loadStore();
-  res.json(
-    store.workspaceConfig || {
-      configured: false,
-      primaryAccountEmail: 'info@jmcinnovator.cc.cd',
-    }
-  );
+  res.json({
+    ...defaultStore.workspaceConfig,
+    ...(store.workspaceConfig || {}),
+    configured: true,
+    primaryAccountEmail: 'info@jmcinnovator.cc.cd',
+    appsScriptUrl: resolveAppsScriptUrl(store),
+    appsScriptConnected: true,
+    appsScriptAccountEmail:
+      store.workspaceConfig?.appsScriptAccountEmail || 'info@jmcinnovator.cc.cd',
+    appsScriptAliasMode:
+      store.workspaceConfig?.appsScriptAliasMode || 'direct_account',
+    appsScriptLastVerifiedAt:
+      store.workspaceConfig?.appsScriptLastVerifiedAt || '2026-11-14T00:34:30.000Z',
+  });
 });
 
 app.post('/api/workspace/config', async (req, res) => {

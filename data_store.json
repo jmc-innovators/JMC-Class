@@ -213,14 +213,19 @@
         "id": "res_kasun_science",
         "schoolId": "id_mtz4zcm9_xs77h8e",
         "classId": "cls_grade9a",
-        "studentId": "st_kasun",
-        "studentName": "Kasun Bandara",
         "subject": "Science",
-        "term": "Term 1 Mid Exam",
-        "marks": 88,
-        "grade": "A",
-        "feedback": "Excellent grasp of kinematics and experimental diagrams.",
+        "examName": "Term 1 Mid Exam",
+        "maxMarks": 100,
         "teacherName": "Mr. Sivaneswaran",
+        "records": [
+          {
+            "studentId": "st_kasun",
+            "studentName": "Kasun Bandara",
+            "marks": 88,
+            "grade": "A",
+            "feedback": "Excellent grasp of kinematics and experimental diagrams."
+          }
+        ],
         "createdAt": "2026-11-12T14:49:55.989Z"
       }
     ]
@@ -290,7 +295,28 @@
   },
   "applicationDocuments": {},
   "workspaceConfig": {
-    "configured": false,
-    "primaryAccountEmail": "info@jmcinnovator.cc.cd"
+    "configured": true,
+    "primaryAccountEmail": "info@jmcinnovator.cc.cd",
+    "connectedGoogleEmail": "info@jmcinnovator.cc.cd",
+    "sendingFromEmail": "info@jmcinnovator.cc.cd",
+    "aliasMode": "direct_account",
+    "rootFolderId": "1tWHPuN-0MvymSPwmotE9IPxrvN-L12kc",
+    "rootFolderUrl": "https://drive.google.com/drive/folders/1tWHPuN-0MvymSPwmotE9IPxrvN-L12kc",
+    "subfolders": {
+      "schoolRegistrations": "1lCha_IZckw1h0PNpK4hGiHU2sBX2Wsjv",
+      "approvedSchools": "1HIa_nPLh_iowWq5ybGYJOfOB4iBXB1EW",
+      "rejectedApplications": "1C0LBcHEPH9D5YdgCG2Ai-nQNmXdGdL9Q",
+      "systemReports": "1_3bwWjE-2AgJFmsZtr6-MseZWzOXEpHy",
+      "backups": "16DV5PqQD-qOkVE2u9iHBjxuwkYoBVZW8"
+    },
+    "spreadsheetId": "1BKMLbDNGp_gLdJKlO4eiT6dY0yfqGyrOI3OyduCpKNc",
+    "spreadsheetUrl": "https://docs.google.com/spreadsheets/d/1BKMLbDNGp_gLdJKlO4eiT6dY0yfqGyrOI3OyduCpKNc/edit",
+    "appsScriptUrl": "https://script.google.com/macros/s/AKfycbzgY8SzMg2jua9o8xdqQVUV6pux1jCCQpsjTyy7f1bTeY8qA8EHBCuhJDua-BxVsYZvWA/exec",
+    "appsScriptConnected": true,
+    "appsScriptAccountEmail": "info@jmcinnovator.cc.cd",
+    "appsScriptAliasMode": "direct_account",
+    "appsScriptLastVerifiedAt": "2026-11-14T00:34:30.000Z",
+    "lastSyncedAt": "2026-11-14T08:37:21.516Z",
+    "updatedAt": "2026-11-14T08:37:21.516Z"
   }
 }

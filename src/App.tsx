@@ -4,10 +4,8 @@ import {
   auth,
   signInWithGoogle,
   signInWithEmail,
-  signInAsRole,
   logOut,
   bootstrapUserProfile,
-  PRIMARY_OPERATOR_EMAIL,
 } from './lib/firebase';
 import {
   UserProfile,
@@ -34,6 +32,7 @@ import { TeacherDashboard } from './components/TeacherDashboard';
 import { StudentDashboard } from './components/StudentDashboard';
 import { ParentDashboard } from './components/ParentDashboard';
 import { GeminiChatWidget } from './components/GeminiChatWidget';
+import { PageLoader, TopProgressBar } from './components/PageLoader';
 import { applyDefaultSeo, applySchoolSeo } from './lib/seoManager';
 
 export default function App() {
@@ -234,67 +233,6 @@ export default function App() {
     } catch (err: any) {
       console.error('Sign-in error:', err);
       setErrorMessage(err.message || 'Could not complete Google Sign-in.');
-    } finally {
-      manualAuthInProgressRef.current = false;
-      setActionLoading(false);
-    }
-  };
-
-  const handleSignInWithRole = async (role: UserRole, targetSchoolId?: string) => {
-    setActionLoading(true);
-    setErrorMessage(null);
-    manualAuthInProgressRef.current = true;
-    try {
-      const { profile } = await signInAsRole(role);
-      await initializeSessionData(profile, targetSchoolId);
-    } catch (err: any) {
-      console.error('Role sign-in error:', err);
-      const errMsg = err?.message || '';
-      if (errMsg.startsWith('Access Denied:')) {
-        setErrorMessage(errMsg);
-        return;
-      }
-
-      // Local fallback session when Firebase Email/Password auth is disabled
-      const emailByRole: Record<UserRole, string> = {
-        operator: PRIMARY_OPERATOR_EMAIL,
-        school: 'admin@jmc.school',
-        teacher: 'teacher.science@jmc.school',
-        student: 'kasun.student@jmc.school',
-        parent: 'sunil.parent@jmc.school',
-        supervisor: 'supervisor@jmc.school',
-      };
-      const displayNameByRole: Record<UserRole, string> = {
-        operator: 'JMC Platform Operator',
-        school: 'School Administrator',
-        teacher: 'Teacher User',
-        student: 'Student User',
-        parent: 'Parent User',
-        supervisor: 'Supervisor User',
-      };
-
-      const allSchools = schools.length > 0 ? schools : await firestoreService.fetchSchools().catch(() => []);
-      if (allSchools.length > 0 && schools.length === 0) {
-        setSchools(allSchools);
-      }
-
-      const fallbackProfile: UserProfile = {
-        uid: 'user_' + role + '_' + Date.now().toString(36),
-        displayName: displayNameByRole[role] || 'User',
-        email: emailByRole[role] || `${role}@jmc.school`,
-        role,
-        ...(role === 'operator' ? {} : { schoolId: targetSchoolId || allSchools[0]?.id || 'id_mtz4zcm9_xs77h8e' }),
-        status: 'active',
-      };
-      setUserProfile(fallbackProfile);
-      if (allSchools.length > 0) {
-        const chosenId = targetSchoolId || fallbackProfile.schoolId;
-        const target = chosenId
-          ? allSchools.find((s) => s.id === chosenId) || allSchools[0]
-          : allSchools[0];
-        setCurrentSchool(target);
-        await loadSchoolData(target.id);
-      }
     } finally {
       manualAuthInProgressRef.current = false;
       setActionLoading(false);
@@ -625,16 +563,7 @@ export default function App() {
   }, [userProfile, routeSchool, routeSchoolId, activeSchool]);
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center mx-auto font-bold text-lg">
-            JMC
-          </div>
-          <div className="text-xs text-slate-400 font-medium">Connecting to JMC Innovators Learning Platform…</div>
-        </div>
-      </div>
-    );
+    return <PageLoader variant="platform" />;
   }
 
   // Not signed in: render Individual School Page or Landing Page
@@ -650,7 +579,6 @@ export default function App() {
             onBackHome={() => navigateTo('/')}
             onSelectSchoolPage={(id) => navigateTo(`/schools/${encodeURIComponent(id)}`)}
             onSignInWithGoogle={handleGoogleSignIn}
-            onSignInWithRole={handleSignInWithRole}
             onSignInWithEmail={handleSignInWithEmail}
             onJoinByCode={handleJoinByCode}
             loading={actionLoading}
@@ -665,9 +593,9 @@ export default function App() {
       <div className="relative">
         <LandingPage
           schools={schools}
+          schoolsLoading={publicSchoolsLoading}
           onNavigateSchool={(id) => navigateTo(`/schools/${encodeURIComponent(id)}`)}
           onSignInWithGoogle={handleGoogleSignIn}
-          onSignInWithRole={handleSignInWithRole}
           onSignInWithEmail={handleSignInWithEmail}
           onJoinByCode={handleJoinByCode}
           onRequestSchoolRegistration={handleRequestSchoolRegistration}
@@ -695,7 +623,8 @@ export default function App() {
   ) || null;
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-[#e6edf3] flex flex-col font-['DM_Sans'] relative">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-['DM_Sans'] relative">
+      <TopProgressBar active={refreshing || actionLoading} />
       <Navbar
         user={userProfile}
         currentSchool={activeSchool}
@@ -711,12 +640,12 @@ export default function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {noticeMessage && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between gap-2">
+          <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
             <span>{noticeMessage}</span>
             <button
               type="button"
               onClick={() => setNoticeMessage(null)}
-              className="text-emerald-200 hover:text-white font-bold px-2"
+              className="text-emerald-700 hover:text-emerald-950 font-bold px-2"
             >
               ✕
             </button>
@@ -738,9 +667,9 @@ export default function App() {
             loading={actionLoading}
           />
         ) : !activeSchool ? (
-          <div className="p-12 text-center rounded-2xl bg-[#101420] border border-white/5 space-y-3">
-            <h3 className="text-base font-bold text-white">No active school found.</h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+          <div className="p-12 text-center rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
+            <h3 className="text-base font-bold text-slate-900">No active school found.</h3>
+            <p className="text-xs text-slate-600 max-w-sm mx-auto">
               You are signed in as {userProfile.role}, but no registered school was selected. Please contact your administrator.
             </p>
           </div>

@@ -448,30 +448,16 @@ export async function signInWithEmail(
         }
       } catch (createErr: any) {
         if (createErr?.code === 'auth/operation-not-allowed') {
-          throw new Error('Email/Password sign-in is disabled in Firebase Console. Please use Google Sign-in or Instant Entry.');
+          throw new Error('Email/Password sign-in is disabled in Firebase Console. Please use Google Sign-in.');
         }
         throw new Error(createErr?.message || 'Authentication error.');
       }
     }
     if (err?.code === 'auth/operation-not-allowed') {
-      throw new Error('Email/Password sign-in is disabled in Firebase Console. Please use Google Sign-in or Instant Entry.');
+      throw new Error('Email/Password sign-in is disabled in Firebase Console. Please use Google Sign-in.');
     }
     throw err;
   }
-}
-
-export async function signInAsRole(role: UserRole): Promise<{ user: FirebaseUser; profile: UserProfile }> {
-  const emailMap: Record<UserRole, string> = {
-    operator: PRIMARY_OPERATOR_EMAIL,
-    school: 'admin@jmc.school',
-    teacher: 'teacher.science@jmc.school',
-    student: 'kasun.student@jmc.school',
-    parent: 'sunil.parent@jmc.school',
-    supervisor: 'supervisor@jmc.school',
-  };
-  const email = emailMap[role] || 'student@jmc.school';
-  const pass = 'JmcClass@2026';
-  return signInWithEmail(email, pass, role);
 }
 
 export async function connectGoogleWorkspace(): Promise<{
